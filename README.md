@@ -159,36 +159,36 @@ Si $R(t) > 0.6$ dentro de las 48 horas posteriores a una aplicación planeada de
 Backend (`backend/.env`):
 
 ```env
-# Entorno
+# Environment
 ENV=development                 # development | staging | production
 DEBUG=true
 
-# Base de datos
+# Database
 DATABASE_URL=postgresql+asyncpg://agrosense_user:agrosense_pass@localhost:5432/agrosense_db
 DB_POOL_SIZE=10
 
-# Seguridad
-SECRET_KEY=secret_key_ejemplo
+# Security
+SECRET_KEY=secret_key_example
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=60
 
 # CORS
 ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080
 
-# Motor de diagnóstico
+# Diagnostic and fertilization
 DEFAULT_UNIT_NPK=mg/kg
 DEFAULT_UNIT_EC=dS/m
 
-# Motor climático
+# Weather alerts
 WEATHER_PROVIDER=openweather        # proveedor meteorológico externo
 WEATHER_API_KEY=weather_api_key_ejemplo
 WEATHER_ALERT_RAIN_WINDOW_HOURS=48
 WEATHER_ALERT_HEATWAVE_THRESHOLD_C=35
 
-# Calendario fenológico
+# Phenology calendar
 PHENOLOGY_NOTIFICATION_LEAD_DAYS=3
 
-# Finanzas
+# Financial dashboard
 DEFAULT_CURRENCY=NIO
 
 # Logging
@@ -210,23 +210,23 @@ agrosense/
 │   │   │                           # PlanFertilizacion, EtapaFenologica, Alerta, Egreso, Ingreso
 │   │   ├── schemas/                # Esquemas Pydantic (request/response)
 │   │   ├── routers/
-│   │   │   ├── fincas.py
-│   │   │   ├── parcelas.py
-│   │   │   ├── cultivos.py
-│   │   │   ├── lecturas.py
-│   │   │   ├── analisis_laboratorio.py     # Vía B: ingreso de análisis de suelo
-│   │   │   ├── diagnostico.py
-│   │   │   ├── fertilizacion.py
-│   │   │   ├── clima.py                    # Alertas climáticas predictivas
-│   │   │   ├── fenologia.py                # Calendario fenológico automatizado
-│   │   │   └── finanzas.py                 # Egresos, ingresos y dashboard de rentabilidad
+│   │   │   ├── farms.py
+│   │   │   ├── parcels.py
+│   │   │   ├── crops.py
+│   │   │   ├── readings.py
+│   │   │   ├── lab_analysis.py     # Vía B: ingreso de análisis de suelo
+│   │   │   ├── diagnostic.py
+│   │   │   ├── fertilization.py
+│   │   │   ├── weather.py                    # Alertas climáticas predictivas
+│   │   │   ├── phenology.py                # Calendario fenológico automatizado
+│   │   │   └── finances.py                 # Egresos, ingresos y dashboard de rentabilidad
 │   │   ├── services/
-│   │   │   ├── diagnostico_service.py      # Cruce lectura/análisis vs. requerimientos del cultivo
-│   │   │   ├── fertilizacion_service.py    # Balance de masa N-P-K, calibración de sensores,
+│   │   │   ├── diagnostic_service.py      # Cruce lectura/análisis vs. requerimientos del cultivo
+│   │   │   ├── fertilization_service.py    # Balance de masa N-P-K, calibración de sensores,
 │   │   │   │                              # cascada química (DAP→Urea→KCl) y dosis orgánica
-│   │   │   ├── clima_service.py            # Consumo del proveedor externo y generación de alertas
-│   │   │   ├── fenologia_service.py        # Proyección de fases fenológicas por cultivo
-│   │   │   └── finanzas_service.py         # Cálculo de costos, margen y punto de equilibrio
+│   │   │   ├── weather_service.py            # Consumo del proveedor externo y generación de alertas
+│   │   │   ├── phenology_service.py        # Proyección de fases fenológicas por cultivo
+│   │   │   └── finances_service.py         # Cálculo de costos, margen y punto de equilibrio
 │   │   ├── integrations/
 │   │   │   └── weather_provider.py         # Cliente HTTP del proveedor meteorológico externo
 │   │   ├── repositories/           # Acceso a datos (consultas SQLAlchemy)
@@ -247,19 +247,20 @@ agrosense/
 │   │   │   └── api/                # Clientes REST (dio)
 │   │   ├── domain/                 # Entidades y casos de uso
 │   │   ├── presentation/
-│   │   │   ├── finca/
-│   │   │   ├── parcela/
+│   │   │   ├── farms/
+│   │   │   ├── parcels/
 │   │   │   ├── dashboard/          # Tablero en tiempo real (NPK, CE, pH, T°, HR)
-│   │   │   ├── laboratorio/        # Captura de análisis de suelo (Vía B)
-│   │   │   ├── fertilizacion/      # Plan interactivo paso a paso
-│   │   │   ├── clima/              # Alertas climáticas predictivas
-│   │   │   ├── fenologia/          # Calendario fenológico automatizado
-│   │   │   └── finanzas/           # Egresos, ingresos y dashboard de rentabilidad
+│   │   │   ├── lab_analysis/        # Captura de análisis de suelo (Vía B)
+│   │   │   ├── fertilization/      # Plan interactivo paso a paso
+│   │   │   ├── weather/              # Alertas climáticas predictivas
+│   │   │   ├── phenology/          # Calendario fenológico automatizado
+│   │   │   └── finances/           # Egresos, ingresos y dashboard de rentabilidad
 │   │   └── shared/                 # Widgets reutilizables
 │   └── pubspec.yaml
 │
-└── docs/
-    └── README.md
+├── docs/
+│
+└── README.md
 ```
 
 ## Scripts
@@ -336,47 +337,84 @@ Authorization: Bearer {token}
 Content-Type: application/json
 
 {
-  "nombre": "Finca El Roble",
-  "ubicacion": {
-    "latitud": 12.1364,
-    "longitud": -86.2514
+  "name": "Finca El Roble",
+  "location": {
+    "latitude": 12.1364,
+    "longitude": -86.2514
   },
-  "area_hectareas": 4.5
+  "area_hectares": 4.5
+}
+```
+
+Respuesta:
+
+```json
+{
+  "status": 200,
+  "message": "Finca registrada exitosamente",
+  "data": {
+    "id": "fin_5a6b7c",
+    "name": "Finca El Roble",
+    "location": {
+      "latitude": 12.1364,
+      "longitude": -86.2514
+    },
+    "area_hectares": 4.5,
+    "registered_at": "2026-07-01T10:15:30Z"
+  }
 }
 ```
 
 ### Registrar una parcela con su cultivo
 
 ```http
-POST /fincas/{finca_id}/parcelas
+POST /farms/{farm_id}/parcels
 Authorization: Bearer {token}
 Content-Type: application/json
 
 {
-  "nombre": "Parcela Norte",
-  "cultivo_id": "cafe_arabica",
-  "etapa_crecimiento": "floracion",
-  "fecha_siembra": "2026-02-15",
-  "area_hectareas": 1.2
+  "name": "Parcela Norte",
+  "crop_id": "cafe_arabica",
+  "growth_stage": "floracion",
+  "planting_date": "2026-02-15",
+  "area_hectares": 1.2
+}
+```
+
+Respuesta:
+
+```json
+{
+  "status": 200,
+  "message": "Parcela registrada exitosamente",
+  "data": {
+    "id": "par_1a2b3c",
+    "name": "Parcela Norte",
+    "crop_id": "cafe_arabica",
+    "growth_stage": "floracion",
+    "planting_date": "2026-02-15",
+    "area_hectares": 1.2,
+    "registered_at": "2026-07-01T10:20:45Z"
+  }
 }
 ```
 
 ### Enviar lectura del sensor (Vía A)
 
 ```http
-POST /parcelas/{parcela_id}/lecturas
+POST /parcels/{parcel_id}/readings
 Authorization: Bearer {token}
 Content-Type: application/json
 
 {
-  "nitrogeno": 45.2,
-  "fosforo": 18.7,
-  "potasio": 60.1,
-  "conductividad_electrica": 1.3,
+  "nitrogen": 45.2,
+  "phosphorus": 18.7,
+  "potassium": 60.1,
+  "ec": 1.3,
   "ph": 5.8,
-  "temperatura": 24.6,
-  "humedad": 38.0,
-  "fuente_conexion": "OTG"
+  "temperature": 24.6,
+  "humidity": 38.0,
+  "source": "OTG"
 }
 ```
 
@@ -385,35 +423,35 @@ Respuesta:
 ```json
 {
   "id": "lec_9f2a3c",
-  "parcela_id": "par_1a2b3c",
+  "parcel_id": "par_1a2b3c",
   "timestamp": "2026-07-01T14:32:10Z",
-  "estado": "procesada"
+  "status": "procesada"
 }
 ```
 
 ### Registrar un análisis de laboratorio (Vía B)
 
 ```http
-POST /parcelas/{parcela_id}/analisis-laboratorio
+POST /parcels/{parcel_id}/lab-analysis
 Authorization: Bearer {token}
 Content-Type: application/json
 
 {
   "ph": 5.6,
-  "materia_organica_pct": 3.1,
+  "organic_matter_pct": 3.1,
   "cic": 14.2,
-  "textura": {
-    "arcilla_pct": 22,
-    "limo_pct": 38,
-    "arena_pct": 40
+  "texture": {
+    "clay_pct": 22,
+    "silt_pct": 38,
+    "sand_pct": 40
   },
-  "nitrogeno": 0.18,
-  "fosforo": 12.4,
-  "potasio": 0.32,
-  "calcio": 6.1,
-  "magnesio": 1.8,
-  "azufre": 9.5,
-  "laboratorio": "Laboratorio de Suelos UNA"
+  "nitrogen": 0.18,
+  "phosphorus": 12.4,
+  "potassium": 0.32,
+  "calcium": 6.1,
+  "magnesium": 1.8,
+  "sulfur": 9.5,
+  "lab": "Laboratorio de Suelos UNA"
 }
 ```
 
@@ -421,17 +459,20 @@ Respuesta:
 
 ```json
 {
-  "id": "lab_7d1e4f",
-  "parcela_id": "par_1a2b3c",
-  "timestamp": "2026-07-01T09:10:00Z",
-  "estado": "procesado"
+  "status": 200,
+  "message": "Análisis de laboratorio registrado exitosamente",
+  "data": {
+    "id": "lab_4d5e6f",
+    "parcel_id": "par_1a2b3c",
+    "timestamp": "2026-07-01T15:10:05Z"
+  }
 }
 ```
 
 ### Obtener diagnóstico de una lectura o análisis
 
 ```http
-GET /lecturas/{lectura_id}/diagnostico
+GET /reading/{reading_id}/diagnostic
 Authorization: Bearer {token}
 ```
 
@@ -439,161 +480,14 @@ Respuesta:
 
 ```json
 {
-  "lectura_id": "lec_9f2a3c",
-  "cultivo": "cafe_arabica",
-  "etapa": "floracion",
-  "resultados": [
-    { "parametro": "nitrogeno", "valor": 45.2, "rango_optimo": [50, 70], "estado": "deficiente" },
-    { "parametro": "ph", "valor": 5.8, "rango_optimo": [5.5, 6.2], "estado": "optimo" },
-    { "parametro": "potasio", "valor": 60.1, "rango_optimo": [55, 65], "estado": "optimo" }
+  "reading_id": "lec_9f2a3c",
+  "crop": "cafe_arabica",
+  "stage": "floracion",
+  "results": [
+    { "parameter": "nitrogen", "value": 45.2, "optimal_range": [50, 70], "status": "deficiente" },
+    { "parameter": "ph", "value": 5.8, "optimal_range": [5.5, 6.2], "status": "optimo" },
+    { "parameter": "potassium", "value": 60.1, "optimal_range": [55, 65], "status": "optimo" }
   ]
-}
-```
-
-### Obtener plan de fertilización
-
-```http
-GET /lecturas/{lectura_id}/plan-fertilizacion
-Authorization: Bearer {token}
-```
-
-Respuesta:
-
-```json
-{
-  "lectura_id": "lec_9f2a3c",
-  "pasos": [
-    {
-      "orden": 1,
-      "nutriente": "nitrogeno",
-      "producto_sugerido": "Urea (46-0-0)",
-      "dosis_kg_por_hectarea": 12.5,
-      "frecuencia": "unica_aplicacion",
-      "observaciones": "Aplicar en banda, evitar contacto directo con el follaje."
-    },
-    {
-      "orden": 2,
-      "nutriente": "fosforo",
-      "producto_sugerido": "Superfosfato triple (0-46-0)",
-      "dosis_kg_por_hectarea": 5.0,
-      "frecuencia": "unica_aplicacion",
-      "observaciones": "Incorporar al suelo cerca de la zona radicular."
-    }
-  ]
-}
-```
-
-### Consultar alertas climáticas de una parcela
-
-```http
-GET /parcelas/{parcela_id}/alertas-clima
-Authorization: Bearer {token}
-```
-
-Respuesta:
-
-```json
-{
-  "parcela_id": "par_1a2b3c",
-  "alertas": [
-    {
-      "tipo": "lavado_nutrientes",
-      "severidad": "alta",
-      "ventana_horas": 48,
-      "mensaje": "Riesgo de escorrentía severa. Posponga la fertilización para evitar que la lluvia lave sus insumos.",
-      "generada_en": "2026-07-25T06:00:00Z"
-    },
-    {
-      "tipo": "estres_termico",
-      "severidad": "media",
-      "mensaje": "Ola de calor prevista. Considere riego de auxilio y suspenda aplicaciones foliares.",
-      "generada_en": "2026-07-24T06:00:00Z"
-    }
-  ]
-}
-```
-
-### Consultar calendario fenológico de una parcela
-
-```http
-GET /parcelas/{parcela_id}/calendario-fenologico
-Authorization: Bearer {token}
-```
-
-Respuesta:
-
-```json
-{
-  "parcela_id": "par_1a2b3c",
-  "cultivo": "cafe_arabica",
-  "fecha_siembra": "2026-02-15",
-  "etapa_actual": "floracion",
-  "fases": [
-    { "fase": "germinacion", "semana_inicio": 1, "semana_fin": 3, "estado": "completada" },
-    { "fase": "desarrollo_vegetativo", "semana_inicio": 4, "semana_fin": 20, "estado": "completada" },
-    { "fase": "floracion", "semana_inicio": 21, "semana_fin": 26, "estado": "en_curso" },
-    { "fase": "llenado_grano", "semana_inicio": 27, "semana_fin": 40, "estado": "pendiente" }
-  ],
-  "proxima_alerta": {
-    "semana": 21,
-    "mensaje": "Inicio de floración. El cultivo demanda altos niveles de fósforo en esta etapa, prepare su aplicación."
-  }
-}
-```
-
-### Registrar un egreso
-
-```http
-POST /fincas/{finca_id}/egresos
-Authorization: Bearer {token}
-Content-Type: application/json
-
-{
-  "categoria": "fertilizante",
-  "descripcion": "Urea 46-0-0, 2 quintales",
-  "monto": 1450.00,
-  "moneda": "NIO",
-  "fecha": "2026-07-20",
-  "parcela_id": "par_1a2b3c"
-}
-```
-
-### Registrar un ingreso por cosecha
-
-```http
-POST /fincas/{finca_id}/ingresos
-Authorization: Bearer {token}
-Content-Type: application/json
-
-{
-  "parcela_id": "par_1a2b3c",
-  "cantidad_quintales": 85,
-  "precio_por_quintal": 210.00,
-  "moneda": "NIO",
-  "fecha_venta": "2026-07-22"
-}
-```
-
-### Obtener dashboard de rentabilidad
-
-```http
-GET /fincas/{finca_id}/dashboard-rentabilidad?periodo=2026
-Authorization: Bearer {token}
-```
-
-Respuesta:
-
-```json
-{
-  "finca_id": "fin_5a6b7c",
-  "periodo": "2026",
-  "ingresos_totales": 17850.00,
-  "egresos_totales": 9320.50,
-  "utilidad_neta": 8529.50,
-  "costo_produccion_por_manzana": 2073.44,
-  "margen_ganancia_pct": 47.8,
-  "punto_equilibrio_quintales": 44.4,
-  "moneda": "NIO"
 }
 ```
 
