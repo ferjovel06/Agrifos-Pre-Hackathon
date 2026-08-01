@@ -35,7 +35,7 @@ Sistema de asistencia agrícola compuesto por una plataforma digital interactiva
 
 Las tablas y columnas se nombran en **inglés** por convención de código (consistente con `models/`, `schemas/` y los endpoints REST). La app Flutter, en cambio, se muestra 100% en **español**: la traducción vive solo en la capa de presentación (`intl`), nunca en el esquema de la base de datos.
 
-El diagrama ER completo (19 entidades, 25 relaciones) está versionado en [`docs/agrotech_er_diagram.mmd`](docs/agrotech_er_diagram.mmd) (formato [Mermaid](https://mermaid.live), renderiza nativamente en GitHub/GitLab).
+El diagrama ER completo (19 entidades, 25 relaciones) está versionado en [`docs/agrifos_er_diagram.mmd`](docs/agrifos_er_diagram.mmd) (formato [Mermaid](https://mermaid.live), renderiza nativamente en GitHub/GitLab).
 
 **Grupos de entidades:**
 
@@ -183,7 +183,7 @@ ENV=development                 # development | staging | production
 DEBUG=true
 
 # Database
-DATABASE_URL=postgresql+asyncpg://agrosense_user:agrosense_pass@localhost:5432/agrosense_db
+DATABASE_URL=postgresql+asyncpg://agrifos_user:agrifos_pass@localhost:5432/agrifos_db
 DB_POOL_SIZE=10
 
 # Security
@@ -217,7 +217,7 @@ LOG_LEVEL=INFO
 ## Estructura modular
 
 ```
-agrosense/
+agrifos/
 ├── backend/
 │   ├── app/
 │   │   ├── main.py                 # Punto de entrada FastAPI
@@ -326,7 +326,7 @@ flutter test
 
 ## Ejemplos de endpoints
 
-Base URL: `https://api.agrosense.dev/v1`
+Base URL: `https://api.agrifos.dev/v1`
 
 ### Autenticación
 
