@@ -1,0 +1,170 @@
+erDiagram
+  USER ||--o{ FARM : owns
+  FARM ||--o{ PARCEL : contains
+  CROP ||--o{ PARCEL : "is grown in"
+  VARIETY o|--o{ PARCEL : specifies
+  CROP ||--o{ VARIETY : has
+  PARCEL ||--o{ READING : records
+  PARCEL ||--o{ LAB_ANALYSIS : records
+  PHENOLOGICAL_STAGE o|--o{ PHENOLOGICAL_STAGE : "is instance of"
+  CROP ||--o{ PHENOLOGICAL_STAGE : "defines stages"
+  PARCEL o|--o{ PHENOLOGICAL_STAGE : schedules
+  CROP ||--o{ OPTIMAL_REQUIREMENT : sets
+  PHENOLOGICAL_STAGE ||--o{ OPTIMAL_REQUIREMENT : "applies at"
+  CROP ||--o{ EXTRACTION_INDEX : defines
+  VARIETY ||--o{ VARIETY_FACTOR : adjusts
+  PHENOLOGICAL_STAGE ||--o{ STAGE_FACTOR : adjusts
+  SOIL_TYPE ||--o{ EFFICIENCY_FACTOR : defines
+  PARCEL ||--o{ FERTILIZATION_PLAN : generates
+  READING o|--o{ FERTILIZATION_PLAN : originates
+  LAB_ANALYSIS o|--o{ FERTILIZATION_PLAN : originates
+  FARM ||--o{ ALERT : triggers
+  PARCEL o|--o{ ALERT : scopes
+  FARM ||--o{ EXPENSE : incurs
+  FARM ||--o{ INCOME : receives
+  FARM ||--o{ PRODUCTION : yields
+  INCOME o|--o{ PRODUCTION : aggregates
+
+  USER {
+    uuid id PK
+    string name
+    string email
+    string role
+  }
+  FARM {
+    uuid id PK
+    uuid user_id FK
+    string name
+    float area_hectares
+    float latitude
+    float longitude
+  }
+  PARCEL {
+    uuid id PK
+    uuid farm_id FK
+    uuid crop_id FK
+    uuid variety_id FK
+    string name
+    float area_hectares
+    date planting_date
+    string growth_stage
+  }
+  CROP {
+    uuid id PK
+    string name
+  }
+  VARIETY {
+    uuid id PK
+    uuid crop_id FK
+    string name
+  }
+  READING {
+    uuid id PK
+    uuid parcel_id FK
+    float nitrogen
+    float phosphorus
+    float potassium
+    float ec
+    float ph
+    float temperature
+    float humidity
+    timestamp recorded_at
+  }
+  LAB_ANALYSIS {
+    uuid id PK
+    uuid parcel_id FK
+    float ph
+    float organic_matter_pct
+    float cic
+    float nitrogen
+    float phosphorus
+    float potassium
+    string lab
+    timestamp recorded_at
+  }
+  PHENOLOGICAL_STAGE {
+    uuid id PK
+    uuid template_id FK
+    uuid crop_id FK
+    uuid parcel_id FK
+    string name
+    int stage_order
+    int duration_days
+    date estimated_date
+    date actual_date
+  }
+  OPTIMAL_REQUIREMENT {
+    uuid id PK
+    uuid crop_id FK
+    uuid stage_id FK
+    string nutrient
+    float min_value
+    float max_value
+  }
+  EXTRACTION_INDEX {
+    uuid id PK
+    uuid crop_id FK
+    string nutrient
+    float ie_value
+  }
+  VARIETY_FACTOR {
+    uuid id PK
+    uuid variety_id FK
+    string nutrient
+    float fv_factor
+  }
+  STAGE_FACTOR {
+    uuid id PK
+    uuid stage_id FK
+    string nutrient
+    float fe_factor
+  }
+  SOIL_TYPE {
+    uuid id PK
+    string name
+    string description
+  }
+  EFFICIENCY_FACTOR {
+    uuid id PK
+    uuid soil_type_id FK
+    string nutrient
+    float ef_min
+    float ef_max
+  }
+  FERTILIZATION_PLAN {
+    uuid id PK
+    uuid parcel_id FK
+    uuid reading_id FK
+    uuid lab_analysis_id FK
+    string method
+    timestamp generated_at
+  }
+  ALERT {
+    uuid id PK
+    uuid farm_id FK
+    uuid parcel_id FK
+    string type
+    string message
+    timestamp created_at
+  }
+  EXPENSE {
+    uuid id PK
+    uuid farm_id FK
+    string category
+    float amount
+    date expense_date
+  }
+  INCOME {
+    uuid id PK
+    uuid farm_id FK
+    float amount
+    date income_date
+  }
+  PRODUCTION {
+    uuid id PK
+    uuid farm_id FK
+    uuid income_id FK
+    float quantity
+    string unit
+    date harvest_date
+  }

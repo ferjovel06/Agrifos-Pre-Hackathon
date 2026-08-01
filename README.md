@@ -6,6 +6,7 @@ Sistema de asistencia agrícola compuesto por una plataforma digital interactiva
 
 ## Tabla de contenidos
 - [Arquitectura](#arquitectura)
+- [Modelo de datos](#modelo-de-datos)
 - [Módulos del ecosistema](#módulos-del-ecosistema)
   - [1. Calculadora de Insumos](#1-calculadora-de-insumos-motor-de-recomendación-nutricional)
   - [2. Inteligencia Climática y Alertas Predictivas](#2-inteligencia-climática-y-alertas-predictivas)
@@ -28,7 +29,25 @@ Sistema de asistencia agrícola compuesto por una plataforma digital interactiva
 2. **App (Flutter):** detecta el sensor conectado por OTG y recibe el stream de datos, o bien permite al agricultor introducir manualmente los valores de un análisis de laboratorio. Además permite registrar finca/parcela/cultivo, registrar egresos/ingresos, y muestra el tablero en tiempo real, el calendario fenológico, las alertas climáticas y el dashboard financiero, enviando toda la información al backend para su procesamiento.
 3. **Backend (FastAPI):** expone la API REST, persiste la información en PostgreSQL, ejecuta el motor de diagnóstico (comparación lectura/análisis vs. requerimientos del cultivo por etapa fenológica), calcula el plan de fertilización, orquesta el motor climático (consumo de un proveedor externo de pronóstico), proyecta el calendario fenológico y calcula la rentabilidad de la finca.
 4. **Servicio externo de clima:** proveedor meteorológico de terceros consultado por el backend para generar alertas predictivas (lluvias, canículas, olas de calor).
-5. **Base de datos (PostgreSQL):** almacena catálogo de cultivos y requerimientos óptimos por etapa, fincas, parcelas, lecturas del sensor NPK, análisis de laboratorio, planes de fertilización, calendarios fenológicos, alertas generadas, y registros de egresos/ingresos/producción.
+5. **Base de datos (PostgreSQL):** modelo relacional de 19 entidades — ver [Modelo de datos](#modelo-de-datos) para el detalle completo.
+
+## Modelo de datos
+
+Las tablas y columnas se nombran en **inglés** por convención de código (consistente con `models/`, `schemas/` y los endpoints REST). La app Flutter, en cambio, se muestra 100% en **español**: la traducción vive solo en la capa de presentación (`intl`), nunca en el esquema de la base de datos.
+
+El diagrama ER completo (19 entidades, 25 relaciones) está versionado en [`docs/agrotech_er_diagram.mmd`](docs/agrotech_er_diagram.mmd) (formato [Mermaid](https://mermaid.live), renderiza nativamente en GitHub/GitLab).
+
+**Grupos de entidades:**
+
+| Grupo | Entidades |
+|---|---|
+| Usuarios y estructura de finca | `User`, `Farm`, `Parcel`, `Crop`, `Variety` |
+| Datos de suelo | `Reading` (sensor OTG), `LabAnalysis` (laboratorio) |
+| Fenología | `PhenologicalStage` — catálogo e instancia por parcela en una sola tabla, vía relación recursiva `template_id` |
+| Referencia del motor de fertilización | `OptimalRequirement`, `ExtractionIndex`, `VarietyFactor`, `StageFactor`, `SoilType`, `EfficiencyFactor` |
+| Resultado del motor | `FertilizationPlan` — ligado opcionalmente a `Reading` **o** `LabAnalysis` (nunca ambos; restricción a nivel de `CHECK` / capa de aplicación, no expresable solo con cardinalidad) |
+| Alertas | `Alert` — `farm_id` obligatorio (alcance por defecto: toda la finca, ej. riesgo climático), `parcel_id` opcional (acota a una parcela, ej. alertas fenológicas) |
+| Finanzas | `Expense`, `Income`, `Production` (una `Production` puede agregarse a un `Income` compartido con otras) |
 
 ## Módulos del ecosistema
 
@@ -205,9 +224,10 @@ agrosense/
 │   │   ├── core/
 │   │   │   ├── config.py           # Carga de variables de entorno (Pydantic Settings)
 │   │   │   └── security.py         # JWT, hashing de contraseñas
-│   │   ├── models/                 # Finca, Parcela, Cultivo, Variedad, FaseFenologica,
-│   │   │                           # Lectura, AnalisisLaboratorio, FactorEficiencia,
-│   │   │                           # PlanFertilizacion, EtapaFenologica, Alerta, Egreso, Ingreso
+│   │   ├── models/                 # User, Farm, Parcel, Crop, Variety, PhenologicalStage,
+│   │   │                           # Reading, LabAnalysis, OptimalRequirement, ExtractionIndex,
+│   │   │                           # VarietyFactor, StageFactor, SoilType, EfficiencyFactor,
+│   │   │                           # FertilizationPlan, Alert, Expense, Income, Production
 │   │   ├── schemas/                # Esquemas Pydantic (request/response)
 │   │   ├── routers/
 │   │   │   ├── farms.py
@@ -259,6 +279,7 @@ agrosense/
 │   └── pubspec.yaml
 │
 ├── docs/
+│   └── agrotech_er_diagram.mmd     # Diagrama ER completo (Mermaid)
 │
 └── README.md
 ```
@@ -332,7 +353,7 @@ Respuesta:
 ### Registrar una finca
 
 ```http
-POST /fincas
+POST /farms
 Authorization: Bearer {token}
 Content-Type: application/json
 
