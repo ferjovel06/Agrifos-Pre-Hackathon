@@ -1,1 +1,10 @@
-docs/exports/*
+docs/exports/
+
+# Backend
+backend/.venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/.fastapicloud/
+backend/*.pyc
+backend/.env
+backend/.pytest_cache/
