@@ -1,8 +1,13 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
-app = FastAPI()
+from app.db.session import get_db
+
+app = FastAPI(title="Agrifos API")
 
 
-@app.get("/")
-async def root():
-    return {"message": "Hello World"}
+@app.get("/health/db")
+async def health_db(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(text("SELECT 1"))
+    return {"database": "ok", "result": result.scalar()}
