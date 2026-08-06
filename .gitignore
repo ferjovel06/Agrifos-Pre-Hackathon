@@ -8,3 +8,7 @@ backend/.fastapicloud/
 backend/*.pyc
 backend/.env
 backend/.pytest_cache/
+
+# Environment variables
+.env
+backend/.env

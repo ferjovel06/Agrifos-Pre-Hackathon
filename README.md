@@ -1,4 +1,4 @@
-![Logo AgroTech](docs/Agrifos_Logo_V1.svg)
+![Logo Agrifos](docs/Agrifos_Logo_V1.svg)
 
 # 🌱 Sistema de Asistencia Agrícola Inteligente
 
@@ -85,7 +85,7 @@ Módulo administrativo integral para manejar la parcela como una empresa, con co
 
 ## Motor de Cálculo: Fundamentos Matemáticos
 
-Esta sección resume la lógica matemática que implementa `fertilizacion_service.py`, documentada en detalle en `docs/agrotech_engine_documentation.md`. El motor está pensado inicialmente para **café** (Caturra, Borbón, Catuaí) y **maíz** (Híbrido, Mejorada, Criollo), y sigue tres pasos secuenciales por cada macronutriente $i \in \{N, P, K\}$.
+Esta sección resume la lógica matemática que implementa `fertilizacion_service.py`, documentada en detalle en `docs/agrifos_engine_documentation.md`. El motor está pensado inicialmente para **café** (Caturra, Borbón, Catuaí) y **maíz** (Híbrido, Mejorada, Criollo), y sigue tres pasos secuenciales por cada macronutriente $i \in \{N, P, K\}$.
 
 ### Paso A — Demanda nutricional del cultivo ($D_c$)
 
@@ -279,7 +279,7 @@ agrifos/
 │   └── pubspec.yaml
 │
 ├── docs/
-│   └── agrotech_er_diagram.mmd     # Diagrama ER completo (Mermaid)
+│   └── agrifos_er_diagram.mmd     # Diagrama ER completo (Mermaid)
 │
 └── README.md
 ```
@@ -514,7 +514,7 @@ Respuesta:
 
 ## Referencias
 
-Los fundamentos matemáticos del motor de cálculo (balance de masa N-P-K, calibración de sensores 7 en 1, cascada de fertilizantes químicos y modelo de riesgo climático) están documentados en `docs/agrotech_engine_documentation.md`. Esa documentación se apoya, entre otras, en las siguientes fuentes:
+Los fundamentos matemáticos del motor de cálculo (balance de masa N-P-K, calibración de sensores 7 en 1, cascada de fertilizantes químicos y modelo de riesgo climático) están documentados en `docs/agrifos_engine_documentation.md`. Esa documentación se apoya, entre otras, en las siguientes fuentes:
 
 1. FAO, *Fertilizers and their use: A pocket guide for extension officers*, 4.ª ed., Roma, 2000.
 2. J. S. Benton, *Plant Nutrition and Soil Fertility Manual*, 2.ª ed., CRC Press, 2012.
