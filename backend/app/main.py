@@ -2,6 +2,7 @@ from fastapi import FastAPI, Depends
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import app.models
 from app.db.session import get_db
 
 app = FastAPI(title="Agrifos API")
