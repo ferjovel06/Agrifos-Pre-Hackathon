@@ -152,8 +152,7 @@ Si $R(t) > 0.6$ dentro de las 48 horas posteriores a una aplicación planeada de
 | `asyncpg` | Driver asíncrono de PostgreSQL |
 | `alembic` | Migraciones de base de datos |
 | `pydantic` / `pydantic-settings` | Validación de datos y configuración |
-| `python-jose[cryptography]` | Generación/validación de JWT |
-| `passlib[bcrypt]` | Hash de contraseñas |
+| `pyjwt[crypto]` | Validación de JWT emitidos por Supabase Auth (JWKS/ES256) |
 | `python-dotenv` | Carga de variables de entorno en desarrollo |
 | `httpx` | Cliente HTTP para consumir el proveedor externo de clima |
 | `apscheduler` | Tareas programadas (evaluación diaria de alertas climáticas y fenológicas) |
@@ -183,13 +182,11 @@ ENV=development                 # development | staging | production
 DEBUG=true
 
 # Database
-DATABASE_URL=postgresql+asyncpg://agrifos_user:agrifos_pass@localhost:5432/agrifos_db
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@127.0.0.1:54322/postgres
 DB_POOL_SIZE=10
 
-# Security
-SECRET_KEY=secret_key_example
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=60
+# Supabase
+SUPABASE_URL=http://127.0.0.1:54321   # API URL del stack local
 
 # CORS
 ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080
@@ -223,7 +220,7 @@ agrifos/
 │   │   ├── main.py                 # Punto de entrada FastAPI
 │   │   ├── core/
 │   │   │   ├── config.py           # Carga de variables de entorno (Pydantic Settings)
-│   │   │   └── security.py         # JWT, hashing de contraseñas
+│   │   │   └── auth.py             # Validación de JWT de Supabase (get_current_user, require_role)
 │   │   ├── models/                 # User, Farm, Parcel, Crop, Variety, PhenologicalStage,
 │   │   │                           # Reading, LabAnalysis, OptimalRequirement, ExtractionIndex,
 │   │   │                           # VarietyFactor, StageFactor, SoilType, EfficiencyFactor,
@@ -330,15 +327,14 @@ Base URL: `https://api.agrifos.dev/v1`
 
 ### Autenticación
 
-```http
-POST /auth/login
-Content-Type: application/json
+El registro e inicio de sesión ocurren directamente contra **Supabase Auth**, no contra este backend (ver [supabase.com/docs/guides/auth](https://supabase.com/docs/guides/auth)). Un trigger en Postgres crea automáticamente el perfil correspondiente en `public.users` al registrarse.
 
-{
-  "email": "agricultor@example.com",
-  "password": "contraseña-segura"
-}
-```
+El cliente envía el JWT obtenido de Supabase en cada petición:
+
+\```http
+GET /users/me
+Authorization: Bearer {supabase_access_token}
+\```
 
 Respuesta:
 

@@ -2,10 +2,12 @@ from fastapi import FastAPI, Depends
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import app.models
 from app.db.session import get_db
+from app.routers import users
 
 app = FastAPI(title="Agrifos API")
+
+app.include_router(users.router)
 
 
 @app.get("/health/db")
