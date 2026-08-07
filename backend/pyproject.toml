@@ -3,6 +3,7 @@ name = "app"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
+    "alembic>=1.13.0",
     "asyncpg>=0.31.0",
     "fastapi[standard]>=0.141.1",
     "psycopg2-binary>=2.9.12",
