@@ -26,7 +26,7 @@ erDiagram
   INCOME o|--o{ PRODUCTION : aggregates
 
   USER {
-    uuid id PK
+    uuid id PK "FK -> auth.users.id (Supabase Auth)"
     string name
     string email
     string role
@@ -76,9 +76,15 @@ erDiagram
     float ph
     float organic_matter_pct
     float cic
+    float clay_pct
+    float silt_pct
+    float sand_pct
     float nitrogen
     float phosphorus
     float potassium
+    float calcium
+    float magnesium
+    float sulfur
     string lab
     timestamp recorded_at
   }

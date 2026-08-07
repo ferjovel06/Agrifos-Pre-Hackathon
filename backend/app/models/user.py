@@ -1,17 +1,24 @@
-import uuid
-from sqlalchemy import String
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import Column, ForeignKey, String, Table
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 
 from app.db.base import Base
-from app.models.mixins import UUIDPKMixin, TimestampMixin
+from app.models.mixins import TimestampMixin
+
+auth_users = Table(
+    "users",
+    Base.metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True),
+    schema="auth",
+)
 
 
-class User(Base, UUIDPKMixin, TimestampMixin):
+class User(Base, TimestampMixin):
     __tablename__ = "users"
 
-    name: Mapped[str] = mapped_column(String(150))
-    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
-    hashed_password: Mapped[str] = mapped_column(String(255))
-    role: Mapped[str] = mapped_column(String(20), default="farmer")  # farmer | admin
+    id = Column(UUID(as_uuid=True), ForeignKey("auth.users.id", ondelete="CASCADE"), primary_key=True)
+    name = Column(String(150), nullable=False)
+    email = Column(String, nullable=False, unique=True)
+    role = Column(String(20), nullable=False, default="farmer")
 
-    farms: Mapped[list["Farm"]] = relationship(back_populates="owner")
+    farms = relationship("Farm", back_populates="owner")

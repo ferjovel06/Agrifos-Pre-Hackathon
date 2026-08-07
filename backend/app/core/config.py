@@ -8,7 +8,8 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     DB_POOL_SIZE: int = 10
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    SUPABASE_URL: str
 
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 settings = Settings()
