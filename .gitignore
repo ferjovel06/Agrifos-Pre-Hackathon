@@ -9,6 +9,12 @@ backend/*.pyc
 backend/.env
 backend/.pytest_cache/
 
+# Frontend
+app_flutter/build/
+app_flutter/.dart_tool/
+app_flutter/android/.gradle/
+app_flutter/android/local.properties
+app_flutter/.idea/
+
 # Environment variables
 .env
-backend/.env
