@@ -147,7 +147,7 @@ Si $R(t) > 0.6$ dentro de las 48 horas posteriores a una aplicación planeada de
 | Paquete | Uso |
 |---|---|
 | `fastapi` | Framework principal de la API REST |
-| `uvicorn[standard]` | Servidor ASGI |
+| `uvicorn` | Servidor ASGI |
 | `sqlalchemy` | ORM para PostgreSQL |
 | `asyncpg` | Driver asíncrono de PostgreSQL |
 | `alembic` | Migraciones de base de datos |
@@ -159,13 +159,17 @@ Si $R(t) > 0.6$ dentro de las 48 horas posteriores a una aplicación planeada de
 | `pandas` / `numpy` | Cálculos del motor de fertilización y del dashboard financiero |
 | `pytest` / `httpx` | Testing de la API |
 
-### App (Flutter 3.x)
+### App (Flutter)
 
 | Paquete | Uso |
 |---|---|
+| `supabase_flutter` | Cliente de Supabase Auth (login, registro, recuperación de contraseña, persistencia de sesión) |
+| `flutter_dotenv` | Carga de `SUPABASE_URL` / `SUPABASE_PUBLISHABLE_KEY` desde `.env` |
+| `dio` | Cliente HTTP para consumir la API de FastAPI |
+| `provider` | Gestión de estado |
+| `flutter_svg` | Renderizado del isotipo/logotipo de la marca |
+| `flutter_native_splash` (dev) | Generación del splash nativo de Android/iOS a partir de `assets/images/` |
 | `usb_serial` | Comunicación con el sensor NPK genérico vía cable OTG (USB Serial) |
-| `dio` | Cliente HTTP para consumir la API |
-| `provider` / `riverpod` | Gestión de estado |
 | `fl_chart` | Gráficos del tablero en tiempo real y del dashboard financiero |
 | `table_calendar` | Visualización del calendario fenológico |
 | `hive` / `sqflite` | Persistencia local / caché offline |
@@ -182,11 +186,12 @@ ENV=development                 # development | staging | production
 DEBUG=true
 
 # Database
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@127.0.0.1:54322/postgres
+DATABASE_URL=postgresql+asyncpg://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres
+
 DB_POOL_SIZE=10
 
 # Supabase
-SUPABASE_URL=http://127.0.0.1:54321   # API URL del stack local
+SUPABASE_URL=https://[project-ref].supabase.co
 
 # CORS
 ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080
@@ -211,6 +216,13 @@ DEFAULT_CURRENCY=NIO
 LOG_LEVEL=INFO
 ```
 
+App Flutter (`app_flutter/.env`):
+
+```env
+SUPABASE_URL=https://[project-ref].supabase.co
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxxxxxxxxxxxx
+```
+
 ## Estructura modular
 
 ```
@@ -227,6 +239,7 @@ agrifos/
 │   │   │                           # FertilizationPlan, Alert, Expense, Income, Production
 │   │   ├── schemas/                # Esquemas Pydantic (request/response)
 │   │   ├── routers/
+│   │   │   ├── users.py            # CRUD de perfil 
 │   │   │   ├── farms.py
 │   │   │   ├── parcels.py
 │   │   │   ├── crops.py
@@ -256,6 +269,8 @@ agrifos/
 │   └── .env
 │
 ├── app_flutter/
+│   ├── assets/
+│   │   ├── images/
 │   ├── lib/
 │   │   ├── main.dart
 │   │   ├── core/                   # Config, temas, constantes
@@ -264,6 +279,8 @@ agrifos/
 │   │   │   └── api/                # Clientes REST (dio)
 │   │   ├── domain/                 # Entidades y casos de uso
 │   │   ├── presentation/
+│   │   │   ├── splash/
+│   │   │   ├── auth/
 │   │   │   ├── farms/
 │   │   │   ├── parcels/
 │   │   │   ├── dashboard/          # Tablero en tiempo real (NPK, CE, pH, T°, HR)
@@ -273,6 +290,7 @@ agrifos/
 │   │   │   ├── phenology/          # Calendario fenológico automatizado
 │   │   │   └── finances/           # Egresos, ingresos y dashboard de rentabilidad
 │   │   └── shared/                 # Widgets reutilizables
+│   ├── .env
 │   └── pubspec.yaml
 │
 ├── docs/
@@ -328,23 +346,6 @@ Base URL: `https://api.agrifos.dev/v1`
 ### Autenticación
 
 El registro e inicio de sesión ocurren directamente contra **Supabase Auth**, no contra este backend (ver [supabase.com/docs/guides/auth](https://supabase.com/docs/guides/auth)). Un trigger en Postgres crea automáticamente el perfil correspondiente en `public.users` al registrarse.
-
-El cliente envía el JWT obtenido de Supabase en cada petición:
-
-\```http
-GET /users/me
-Authorization: Bearer {supabase_access_token}
-\```
-
-Respuesta:
-
-```json
-{
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "token_type": "bearer",
-  "expires_in": 3600
-}
-```
 
 ### Registrar una finca
 

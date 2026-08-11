@@ -9,12 +9,30 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_dotenv: ^6.0.1
+  flutter_svg: ^2.3.0
+  provider: ^6.1.5+1
+  supabase_flutter: ^2.17.1
+  google_fonts: ^6.2.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
   rename: ^3.1.0
+  flutter_native_splash: ^2.4.8
+  flutter_launcher_icons: ^0.14.1
 
 flutter:
   uses-material-design: true
+  assets:
+    - .env
+    - assets/images/
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/images/app_icon.png"
+  # Adaptive icon configuration for Android 8.0+ (API level 26+)
+  adaptive_icon_background: "#F9F0E9"
+  adaptive_icon_foreground: "assets/images/app_icon_foreground.png"
