@@ -8,6 +8,7 @@ import 'core/env.dart';
 import 'data/api/auth_repository.dart';
 import 'presentation/auth/auth_provider.dart';
 import 'presentation/auth/auth_gate.dart';
+import 'presentation/sensor/sensor_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,8 +27,11 @@ class AgrifosApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => AuthProvider(AuthRepository()),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider(AuthRepository())),
+        ChangeNotifierProvider(create: (_) => SensorProvider()),
+      ],
       child: MaterialApp(
         title: 'Agrifos',
         theme: ThemeData(

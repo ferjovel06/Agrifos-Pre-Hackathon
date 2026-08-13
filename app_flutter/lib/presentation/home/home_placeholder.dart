@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../auth/auth_provider.dart';
+import '../sensor/sensor_screen.dart';
 
 /// Temporary stand-in until the real Home screen exists.
 class HomePlaceholder extends StatelessWidget {
@@ -20,6 +21,13 @@ class HomePlaceholder extends StatelessWidget {
             TextButton(
               onPressed: () => context.read<AuthProvider>().signOut(),
               child: const Text('Cerrar sesión'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SensorScreen()),
+              ),
+              child: const Text('Ver sensor'),
             ),
           ],
         ),

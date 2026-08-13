@@ -11,6 +11,7 @@ backend/.pytest_cache/
 
 # Frontend
 app_flutter/build/
+app_flutter/android/build/
 app_flutter/.dart_tool/
 app_flutter/android/.gradle/
 app_flutter/android/local.properties
