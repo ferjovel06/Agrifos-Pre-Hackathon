@@ -6,8 +6,13 @@ import 'package:flutter_serial_communication/models/device_info.dart';
 class SensorReading {
   final double nitrogen, phosphorus, potassium, ec, ph, temperature, humidity;
   SensorReading({
-    required this.nitrogen, required this.phosphorus, required this.potassium,
-    required this.ec, required this.ph, required this.temperature, required this.humidity,
+    required this.nitrogen,
+    required this.phosphorus,
+    required this.potassium,
+    required this.ec,
+    required this.ph,
+    required this.temperature,
+    required this.humidity,
   });
 }
 
@@ -25,20 +30,18 @@ class UsbSensorService {
   Timer? _pollTimer;
   StreamController<SensorReading>? _controller;
 
-  //   0x00 Humedad (0.1 %RH) · 0x01 Temperatura (0.1 °C, con signo)
+  //   0x00 Humidity (0.1 %RH) · 0x01 Temperature (0.1 °C)
   //   0x02 EC (1 us/cm) · 0x03 pH (0.1 pH)
-  //   0x04 Nitrógeno · 0x05 Fósforo · 0x06 Potasio (mg/kg)
+  //   0x04 Nitrogen · 0x05 Phosphorus · 0x06 Potassium (mg/kg)
   static const int _startReg = 0x0000;
   static const int _regCount = 7;
 
   Future<bool> connect() async {
     final devices = await _plugin.getAvailableDevices();
-    if (kDebugMode) debugPrint('[sensor] dispositivos encontrados: ${devices.length}');
     if (devices.isEmpty) return false;
 
     final DeviceInfo device = devices.first;
     final ok = await _plugin.connect(device, 9600);
-    if (kDebugMode) debugPrint('[sensor] connect() devolvió: $ok');
     if (!ok) return false;
 
     await Future.delayed(const Duration(milliseconds: 500));
@@ -46,36 +49,50 @@ class UsbSensorService {
   }
 
   Stream<SensorReading> readings() {
-    _bufferedBytes.clear(); // por si quedaron bytes sueltos de una sesión anterior
+    _bufferedBytes.clear();
     final controller = StreamController<SensorReading>();
     _controller = controller;
     final eventChannel = _plugin.getSerialMessageListener();
 
     _sub = eventChannel.receiveBroadcastStream().listen(
-          (event) {
+      (event) {
         final bytes = (event as List).cast<int>();
         _bufferedBytes.addAll(bytes);
         _tryParseModbusFrame(controller);
       },
-      onError: (e) => _handleDisconnect(controller, 'Error en el canal serial: $e'),
+      onError: (e) =>
+          _handleDisconnect(controller, 'Error en el canal serial: $e'),
     );
 
     _sendQuery();
-    _pollTimer = Timer.periodic(const Duration(seconds: 2), (_) => _sendQuery());
+    _pollTimer = Timer.periodic(
+      const Duration(seconds: 2),
+      (_) => _sendQuery(),
+    );
     return controller.stream;
   }
 
   Future<void> _sendQuery() async {
     if (_controller == null || _controller!.isClosed) return;
-    final request = _buildModbusRequest(slaveId: 0x01, startReg: _startReg, count: _regCount);
+    final request = _buildModbusRequest(
+      slaveId: 0x01,
+      startReg: _startReg,
+      count: _regCount,
+    );
     try {
       await _plugin.write(Uint8List.fromList(request));
     } catch (e) {
-      _handleDisconnect(_controller!, 'Se perdió la conexión con el sensor: $e');
+      _handleDisconnect(
+        _controller!,
+        'Se perdió la conexión con el sensor: $e',
+      );
     }
   }
 
-  void _handleDisconnect(StreamController<SensorReading> controller, String message) {
+  void _handleDisconnect(
+    StreamController<SensorReading> controller,
+    String message,
+  ) {
     if (controller.isClosed) return;
     _pollTimer?.cancel();
     _pollTimer = null;
@@ -85,8 +102,19 @@ class UsbSensorService {
     controller.close();
   }
 
-  List<int> _buildModbusRequest({required int slaveId, required int startReg, required int count}) {
-    final frame = [slaveId, 0x03, startReg >> 8, startReg & 0xFF, count >> 8, count & 0xFF];
+  List<int> _buildModbusRequest({
+    required int slaveId,
+    required int startReg,
+    required int count,
+  }) {
+    final frame = [
+      slaveId,
+      0x03,
+      startReg >> 8,
+      startReg & 0xFF,
+      count >> 8,
+      count & 0xFF,
+    ];
     final crc = _crc16(frame);
     return [...frame, crc & 0xFF, crc >> 8];
   }
@@ -133,17 +161,17 @@ class UsbSensorService {
       regs.add((frame[i] << 8) | frame[i + 1]);
     }
 
-    if (kDebugMode) debugPrint('[sensor] regs=$regs');
-
-    controller.add(SensorReading(
-      humidity: regs[0] / 10.0,
-      temperature: _toSigned16(regs[1]) / 10.0,
-      ec: regs[2].toDouble(),
-      ph: regs[3] / 10.0,
-      nitrogen: regs[4].toDouble(),
-      phosphorus: regs[5].toDouble(),
-      potassium: regs[6].toDouble(),
-    ));
+    controller.add(
+      SensorReading(
+        humidity: regs[0] / 10.0,
+        temperature: _toSigned16(regs[1]) / 10.0,
+        ec: regs[2].toDouble(),
+        ph: regs[3] / 10.0,
+        nitrogen: regs[4].toDouble(),
+        phosphorus: regs[5].toDouble(),
+        potassium: regs[6].toDouble(),
+      ),
+    );
   }
 
   int _toSigned16(int value) => value >= 0x8000 ? value - 0x10000 : value;
@@ -156,7 +184,6 @@ class UsbSensorService {
     }
     try {
       await _plugin.disconnect();
-    } catch (_) {
-    }
+    } catch (_) {}
   }
 }
