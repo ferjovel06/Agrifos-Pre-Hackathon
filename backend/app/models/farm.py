@@ -36,7 +36,6 @@ class Parcel(Base, UUIDPKMixin, TimestampMixin):
     name: Mapped[str] = mapped_column(String(150))
     area_hectares: Mapped[float] = mapped_column(Float)
     planting_date: Mapped[Date] = mapped_column(Date)
-    growth_stage: Mapped[str] = mapped_column(String(50))
 
     farm: Mapped["Farm"] = relationship(back_populates="parcels")
     crop: Mapped["Crop"] = relationship(back_populates="parcels")
