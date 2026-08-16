@@ -1,14 +1,25 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import '../../data/api/api_client.dart';
+import '../../data/api/readings_repository.dart';
 import '../../data/sensor/usb_sensor_service.dart';
 
 enum SensorStatus { disconnected, connecting, connected, reconnecting, error }
 
+enum SaveStatus { idle, saving, saved, error }
+
 class SensorProvider extends ChangeNotifier {
   final _service = UsbSensorService();
+  final ReadingsRepository _readingsRepository;
   SensorStatus status = SensorStatus.disconnected;
   SensorReading? lastReading;
   String? errorMessage;
+
+  SaveStatus saveStatus = SaveStatus.idle;
+  String? saveErrorMessage;
+
+  SensorProvider({ReadingsRepository? readingsRepository})
+    : _readingsRepository = readingsRepository ?? ReadingsRepository();
 
   static const _maxAutoRetries = 5;
   static const _retryDelay = Duration(seconds: 3);
@@ -36,6 +47,8 @@ class SensorProvider extends ChangeNotifier {
     _service.readings().listen(
       (reading) {
         lastReading = reading;
+        saveStatus = SaveStatus.idle;
+        saveErrorMessage = null;
         notifyListeners();
       },
       onError: (e) {
@@ -84,6 +97,8 @@ class SensorProvider extends ChangeNotifier {
         (reading) {
           _retryCount = 0;
           lastReading = reading;
+          saveStatus = SaveStatus.idle;
+          saveErrorMessage = null;
           notifyListeners();
         },
         onError: (e) {
@@ -99,12 +114,45 @@ class SensorProvider extends ChangeNotifier {
     });
   }
 
+  /// Sends [lastReading] to the backend for the given [parcelId].
+  Future<void> saveCurrentReading(String parcelId) async {
+    final reading = lastReading;
+    if (reading == null) return;
+
+    saveStatus = SaveStatus.saving;
+    saveErrorMessage = null;
+    notifyListeners();
+
+    try {
+      await _readingsRepository.submitReading(
+        parcelId: parcelId,
+        reading: reading,
+      );
+      saveStatus = SaveStatus.saved;
+      notifyListeners();
+    } on ApiAuthException catch (e) {
+      saveStatus = SaveStatus.error;
+      saveErrorMessage = e.message;
+      notifyListeners();
+    } on ApiException catch (e) {
+      saveStatus = SaveStatus.error;
+      saveErrorMessage = e.message;
+      notifyListeners();
+    } catch (e) {
+      saveStatus = SaveStatus.error;
+      saveErrorMessage = 'No se pudo guardar la lectura: $e';
+      notifyListeners();
+    }
+  }
+
   Future<void> disconnect() async {
     _userRequestedDisconnect = true;
     await _service.dispose();
     status = SensorStatus.disconnected;
     lastReading = null;
     errorMessage = null;
+    saveStatus = SaveStatus.idle;
+    saveErrorMessage = null;
     notifyListeners();
   }
 

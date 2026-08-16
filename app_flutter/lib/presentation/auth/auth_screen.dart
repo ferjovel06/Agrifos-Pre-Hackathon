@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:app_flutter/shared/field_label.dart';
 import 'auth_provider.dart';
@@ -78,10 +79,7 @@ class _Hero extends StatelessWidget {
             child: SvgPicture.asset('assets/images/agrifos_isotype.svg'),
           ),
           const SizedBox(height: 10),
-          SvgPicture.asset(
-            'assets/images/agrifos_logotype.svg',
-            height: 34,
-          ),
+          SvgPicture.asset('assets/images/agrifos_logotype.svg', height: 34),
           const SizedBox(height: 10),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -236,6 +234,21 @@ class _LoginFormState extends State<_LoginForm> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(auth.errorMessage ?? 'Error al iniciar sesión')),
       );
+      return;
+    }
+
+    final session = Supabase.instance.client.auth.currentSession;
+    final token = session?.accessToken;
+
+    print('TOKEN JWT: $token');
+
+    if (token != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Token listo: $token'),
+          duration: const Duration(seconds: 6),
+        ),
+      );
     }
   }
 
@@ -265,7 +278,9 @@ class _LoginFormState extends State<_LoginForm> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No se pudo enviar el correo. Intenta más tarde.')),
+          const SnackBar(
+            content: Text('No se pudo enviar el correo. Intenta más tarde.'),
+          ),
         );
       }
     }
@@ -309,7 +324,10 @@ class _LoginFormState extends State<_LoginForm> {
                   padding: EdgeInsets.zero,
                   minimumSize: Size.zero,
                 ),
-                child: const Text('¿Olvidaste?', style: TextStyle(fontSize: 12)),
+                child: const Text(
+                  '¿Olvidaste?',
+                  style: TextStyle(fontSize: 12),
+                ),
               ),
             ],
           ),
@@ -323,13 +341,16 @@ class _LoginFormState extends State<_LoginForm> {
                 onPressed: () =>
                     setState(() => _obscurePassword = !_obscurePassword),
                 icon: Icon(
-                  _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                  _obscurePassword
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
                   size: 20,
                 ),
               ),
             ),
             validator: (value) {
-              if (value == null || value.isEmpty) return 'Ingresa tu contraseña.';
+              if (value == null || value.isEmpty)
+                return 'Ingresa tu contraseña.';
               return null;
             },
           ),
@@ -348,15 +369,20 @@ class _LoginFormState extends State<_LoginForm> {
             style: FilledButton.styleFrom(
               backgroundColor: const Color(0xFF2E4A2E),
               padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
             onPressed: isLoading ? null : _submit,
             child: isLoading
                 ? const SizedBox(
-              height: 20,
-              width: 20,
-              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-            )
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
                 : const Text('Iniciar Sesión →'),
           ),
         ],
@@ -404,7 +430,9 @@ class _RegisterFormState extends State<_RegisterForm> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          ok ? 'Cuenta creada correctamente.' : (auth.errorMessage ?? 'Error al registrarse'),
+          ok
+              ? 'Cuenta creada correctamente.'
+              : (auth.errorMessage ?? 'Error al registrarse'),
         ),
       ),
     );
@@ -427,7 +455,9 @@ class _RegisterFormState extends State<_RegisterForm> {
               hintText: 'Tu nombre',
               prefixIcon: Icon(Icons.person_outline, size: 20),
             ),
-            validator: (v) => (v == null || v.trim().length < 2) ? 'Ingresa tu nombre.' : null,
+            validator: (v) => (v == null || v.trim().length < 2)
+                ? 'Ingresa tu nombre.'
+                : null,
           ),
           const SizedBox(height: 16),
           const FieldLabel('CORREO ELECTRÓNICO'),
@@ -464,7 +494,8 @@ class _RegisterFormState extends State<_RegisterForm> {
                         prefixIcon: const Icon(Icons.lock_outline, size: 20),
                         suffixIcon: IconButton(
                           onPressed: () => setState(
-                                  () => _obscurePassword = !_obscurePassword),
+                            () => _obscurePassword = !_obscurePassword,
+                          ),
                           icon: Icon(
                             _obscurePassword
                                 ? Icons.visibility_outlined
@@ -507,15 +538,20 @@ class _RegisterFormState extends State<_RegisterForm> {
             style: FilledButton.styleFrom(
               backgroundColor: const Color(0xFF2E4A2E),
               padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
             onPressed: isLoading ? null : _submit,
             child: isLoading
                 ? const SizedBox(
-              height: 20,
-              width: 20,
-              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-            )
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
                 : const Text('Crear Cuenta → Comenzar Gratis'),
           ),
         ],
