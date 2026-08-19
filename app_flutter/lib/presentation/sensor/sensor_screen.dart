@@ -2,14 +2,33 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'sensor_provider.dart';
+import '../../shared/field_label.dart';
 import '../auth/auth_provider.dart';
 
-class SensorScreen extends StatelessWidget {
+class SensorScreen extends StatefulWidget {
   const SensorScreen({super.key});
+
+  @override
+  State<SensorScreen> createState() => _SensorScreenState();
+}
+
+class _SensorScreenState extends State<SensorScreen> {
+  // TODO: replace with a real parcel picker once the parcels screen exists.
+  // For now the user pastes the UUID of the parcel this reading belongs to.
+  final _parcelIdController = TextEditingController(text: 'c365e14f-da8a-4cdf-b7d2-9c9357ba5f61');
+
+  @override
+  void dispose() {
+    _parcelIdController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final sensor = context.watch<SensorProvider>();
+    final canSave = sensor.lastReading != null &&
+        _parcelIdController.text.trim().isNotEmpty &&
+        sensor.saveStatus != SaveStatus.saving;
 
     return Scaffold(
       appBar: AppBar(
@@ -79,6 +98,49 @@ class SensorScreen extends StatelessWidget {
               Text('pH: ${sensor.lastReading!.ph}'),
               Text('Temperatura: ${sensor.lastReading!.temperature} °C'),
               Text('Humedad: ${sensor.lastReading!.humidity} %'),
+              const SizedBox(height: 20),
+              FieldLabel('ID de la parcela'.toUpperCase()),
+              TextField(
+                controller: _parcelIdController,
+                decoration: const InputDecoration(
+                  hintText: 'UUID de la parcela',
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  ElevatedButton(
+                    onPressed: canSave
+                        ? () => context
+                        .read<SensorProvider>()
+                        .saveCurrentReading(_parcelIdController.text.trim())
+                        : null,
+                    child: sensor.saveStatus == SaveStatus.saving
+                        ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                        : const Text('Guardar lectura'),
+                  ),
+                  const SizedBox(width: 12),
+                  if (sensor.saveStatus == SaveStatus.saved)
+                    const Text(
+                      'Lectura guardada ✓',
+                      style: TextStyle(color: Colors.green),
+                    ),
+                ],
+              ),
+              if (sensor.saveStatus == SaveStatus.error &&
+                  sensor.saveErrorMessage != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    sensor.saveErrorMessage!,
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                ),
             ] else
               const Text('Sin lecturas todavía'),
           ],
