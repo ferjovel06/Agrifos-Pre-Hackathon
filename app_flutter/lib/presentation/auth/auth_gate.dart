@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import 'auth_provider.dart';
 import 'auth_screen.dart';
 import '../splash/splash_screen.dart';
-import '../home/home_placeholder.dart';
+import '../navigation/main_shell.dart';
 
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
@@ -30,7 +30,7 @@ class _AuthGateState extends State<AuthGate> {
 
     final auth = context.watch<AuthProvider>();
     return auth.status == AuthStatus.authenticated
-        ? const HomePlaceholder()
+        ? const MainShell()
         : const AuthScreen();
   }
 }
