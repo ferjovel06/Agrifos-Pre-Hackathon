@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_serial_communication/flutter_serial_communication.dart';
 import 'package:flutter_serial_communication/models/device_info.dart';
 
@@ -48,6 +49,64 @@ class UsbSensorService {
     return true;
   }
 
+  /// Whether a matching USB device is already plugged in right now.
+  ///
+  /// Used at app/provider startup, since the native attach bridge (see
+  /// [usbAttachEvents]) only fires on a *new* attach/onNewIntent — it
+  /// won't tell us about a sensor that was already connected before the
+  /// listener was set up.
+  Future<bool> hasAvailableDevice() async {
+    final devices = await _plugin.getAvailableDevices();
+    return devices.isNotEmpty;
+  }
+
+  static const _usbAttachChannel = MethodChannel('agrifos/usb_attach');
+
+  /// Whether *this* app launch was triggered by Android because the
+  /// sensor was just plugged in (cold start via the `USB_DEVICE_ATTACHED`
+  /// intent-filter declared in AndroidManifest.xml — see MainActivity.kt).
+  /// Consult once at startup; unrelated to normal app opens.
+  Future<bool> consumeColdStartUsbAttach() async {
+    try {
+      final attached = await _usbAttachChannel.invokeMethod<bool>(
+        'consumeUsbAttachIntent',
+      );
+      return attached ?? false;
+    } on PlatformException {
+      return false;
+    }
+  }
+
+  /// Fires every time Android delivers a new USB-attach intent to the app
+  /// while it's already running (bridged from `MainActivity.onNewIntent`).
+  ///
+  /// This is the real "sensor was just plugged in" signal — NOT the
+  /// plugin's own `getDeviceConnectionListener()`, whose stream only
+  /// echoes Dart's own `connect()`/`disconnect()` calls and never fires
+  /// from an actual OS-level attach event.
+  Stream<void> usbAttachEvents() {
+    final controller = StreamController<void>.broadcast();
+    _usbAttachChannel.setMethodCallHandler((call) async {
+      if (call.method == 'usbDeviceAttached') {
+        controller.add(null);
+      }
+    });
+    return controller.stream;
+  }
+
+  /// Fires when the plugin's native layer closes the port on its own —
+  /// e.g. after an I/O error from unplugging the cable while connected.
+  /// Its `true` values just echo our own `connect()` calls (not a real
+  /// attach signal, see [usbAttachEvents] for that), but its `false`
+  /// values ARE a reliable, immediate physical-disconnect signal.
+  Stream<void> nativeDisconnectEvents() {
+    return _plugin
+        .getDeviceConnectionListener()
+        .receiveBroadcastStream()
+        .where((event) => event == false)
+        .map((_) {});
+  }
+
   Stream<SensorReading> readings() {
     _bufferedBytes.clear();
     final controller = StreamController<SensorReading>();
@@ -55,7 +114,7 @@ class UsbSensorService {
     final eventChannel = _plugin.getSerialMessageListener();
 
     _sub = eventChannel.receiveBroadcastStream().listen(
-      (event) {
+          (event) {
         final bytes = (event as List).cast<int>();
         _bufferedBytes.addAll(bytes);
         _tryParseModbusFrame(controller);
@@ -67,7 +126,7 @@ class UsbSensorService {
     _sendQuery();
     _pollTimer = Timer.periodic(
       const Duration(seconds: 2),
-      (_) => _sendQuery(),
+          (_) => _sendQuery(),
     );
     return controller.stream;
   }
@@ -80,7 +139,13 @@ class UsbSensorService {
       count: _regCount,
     );
     try {
-      await _plugin.write(Uint8List.fromList(request));
+      final sent = await _plugin.write(Uint8List.fromList(request));
+      if (!sent) {
+        _handleDisconnect(
+          _controller!,
+          'Se perdió la conexión con el sensor',
+        );
+      }
     } catch (e) {
       _handleDisconnect(
         _controller!,
@@ -90,9 +155,9 @@ class UsbSensorService {
   }
 
   void _handleDisconnect(
-    StreamController<SensorReading> controller,
-    String message,
-  ) {
+      StreamController<SensorReading> controller,
+      String message,
+      ) {
     if (controller.isClosed) return;
     _pollTimer?.cancel();
     _pollTimer = null;

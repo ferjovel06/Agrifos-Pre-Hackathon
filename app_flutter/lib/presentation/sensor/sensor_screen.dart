@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'sensor_provider.dart';
+import '../../core/dev_constants.dart';
 import '../../shared/field_label.dart';
 import '../auth/auth_provider.dart';
+import '../home/latest_reading_provider.dart';
 
 class SensorScreen extends StatefulWidget {
   const SensorScreen({super.key});
@@ -15,7 +17,7 @@ class SensorScreen extends StatefulWidget {
 class _SensorScreenState extends State<SensorScreen> {
   // TODO: replace with a real parcel picker once the parcels screen exists.
   // For now the user pastes the UUID of the parcel this reading belongs to.
-  final _parcelIdController = TextEditingController(text: 'c365e14f-da8a-4cdf-b7d2-9c9357ba5f61');
+  final _parcelIdController = TextEditingController(text: kPlaceholderParcelId);
 
   @override
   void dispose() {
@@ -112,9 +114,19 @@ class _SensorScreenState extends State<SensorScreen> {
                 children: [
                   ElevatedButton(
                     onPressed: canSave
-                        ? () => context
-                        .read<SensorProvider>()
-                        .saveCurrentReading(_parcelIdController.text.trim())
+                        ? () async {
+                      final sensorProvider =
+                      context.read<SensorProvider>();
+                      final parcelId = _parcelIdController.text.trim();
+                      await sensorProvider.saveCurrentReading(parcelId);
+                      if (sensorProvider.saveStatus ==
+                          SaveStatus.saved &&
+                          context.mounted) {
+                        context
+                            .read<LatestReadingProvider>()
+                            .fetchLatest(parcelId);
+                      }
+                    }
                         : null,
                     child: sensor.saveStatus == SaveStatus.saving
                         ? const SizedBox(

@@ -19,12 +19,52 @@ class SensorProvider extends ChangeNotifier {
   String? saveErrorMessage;
 
   SensorProvider({ReadingsRepository? readingsRepository})
-    : _readingsRepository = readingsRepository ?? ReadingsRepository();
+      : _readingsRepository = readingsRepository ?? ReadingsRepository() {
+    _initAutoConnect();
+  }
 
   static const _maxAutoRetries = 5;
   static const _retryDelay = Duration(seconds: 3);
   int _retryCount = 0;
   bool _userRequestedDisconnect = false;
+  StreamSubscription<void>? _usbAttachSub;
+  StreamSubscription<void>? _nativeDisconnectSub;
+
+  /// Watches for the OTG sensor being plugged in and connects automatically,
+  /// without the user having to tap "Conectar sensor".
+  void _initAutoConnect() {
+    // Covers two startup cases: the app was cold-started because the
+    // sensor was just plugged in, or the sensor was already plugged in
+    // from an earlier session.
+    _service.consumeColdStartUsbAttach().then((coldStarted) async {
+      if (coldStarted) {
+        connectAndListen();
+        return;
+      }
+      final available = await _service.hasAvailableDevice();
+      if (available && status == SensorStatus.disconnected) {
+        connectAndListen();
+      }
+    });
+
+    // Covers the sensor being plugged in while the app is already running.
+    _usbAttachSub = _service.usbAttachEvents().listen((_) {
+      if (status == SensorStatus.disconnected ||
+          status == SensorStatus.error) {
+        _userRequestedDisconnect = false;
+        connectAndListen();
+      }
+    });
+
+    // Covers the sensor being unplugged while connected: the native layer
+    // notices the I/O error immediately, instead of waiting for the next
+    // ~2s poll to fail.
+    _nativeDisconnectSub = _service.nativeDisconnectEvents().listen((_) {
+      if (!_userRequestedDisconnect && status != SensorStatus.disconnected) {
+        _scheduleReconnect('se desconectó el sensor');
+      }
+    });
+  }
 
   Future<void> connectAndListen() async {
     _userRequestedDisconnect = false;
@@ -45,7 +85,7 @@ class SensorProvider extends ChangeNotifier {
     notifyListeners();
 
     _service.readings().listen(
-      (reading) {
+          (reading) {
         lastReading = reading;
         saveStatus = SaveStatus.idle;
         saveErrorMessage = null;
@@ -67,7 +107,7 @@ class SensorProvider extends ChangeNotifier {
     if (_retryCount >= _maxAutoRetries) {
       status = SensorStatus.error;
       errorMessage =
-          'Se perdió la conexión con el sensor y se agotaron los '
+      'Se perdió la conexión con el sensor y se agotaron los '
           'reintentos automáticos ($_maxAutoRetries). Verifica el cable OTG '
           'y toca "Conectar sensor" para intentar de nuevo.';
       notifyListeners();
@@ -77,7 +117,7 @@ class SensorProvider extends ChangeNotifier {
     _retryCount++;
     status = SensorStatus.reconnecting;
     errorMessage =
-        'Conexión perdida ($reason). Reintentando '
+    'Conexión perdida ($reason). Reintentando '
         '($_retryCount/$_maxAutoRetries)...';
     notifyListeners();
 
@@ -94,7 +134,7 @@ class SensorProvider extends ChangeNotifier {
       notifyListeners();
 
       _service.readings().listen(
-        (reading) {
+            (reading) {
           _retryCount = 0;
           lastReading = reading;
           saveStatus = SaveStatus.idle;
@@ -159,6 +199,8 @@ class SensorProvider extends ChangeNotifier {
   @override
   void dispose() {
     _userRequestedDisconnect = true;
+    _usbAttachSub?.cancel();
+    _nativeDisconnectSub?.cancel();
     _service.dispose();
     super.dispose();
   }
