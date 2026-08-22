@@ -8,6 +8,7 @@ import 'core/env.dart';
 import 'data/api/auth_repository.dart';
 import 'presentation/auth/auth_provider.dart';
 import 'presentation/auth/auth_gate.dart';
+import 'presentation/home/latest_reading_provider.dart';
 import 'presentation/sensor/sensor_provider.dart';
 
 Future<void> main() async {
@@ -31,6 +32,7 @@ class AgrifosApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider(AuthRepository())),
         ChangeNotifierProvider(create: (_) => SensorProvider()),
+        ChangeNotifierProvider(create: (_) => LatestReadingProvider()),
       ],
       child: MaterialApp(
         title: 'Agrifos',

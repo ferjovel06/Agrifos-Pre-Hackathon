@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../home/home_placeholder.dart';
+import '../home/home_screen.dart';
 import '../sensor/sensor_screen.dart';
 import '../planification/planification_screen.dart';
 import '../finance/finance_screen.dart';
@@ -52,7 +52,7 @@ class _MainShellState extends State<MainShell> {
 
   // Kept in the same order as `_items` so index i maps to screen i.
   static const _screens = [
-    HomePlaceholder(),
+    HomeScreen(),
     SensorScreen(),
     PlanificationScreen(),
     FinanceScreen(),

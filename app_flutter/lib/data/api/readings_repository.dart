@@ -1,8 +1,8 @@
+import '../../domain/entities/reading.dart';
 import '../sensor/usb_sensor_service.dart';
 import 'api_client.dart';
 
 /// Sends sensor readings captured by the app to the Agrifos backend
-/// (`POST /readings`), where they are validated and stored.
 class ReadingsRepository {
   final ApiClient _client;
 
@@ -27,5 +27,20 @@ class ReadingsRepository {
       'temperature': reading.temperature,
       'humidity': reading.humidity,
     });
+  }
+
+  /// Fetches the most recent stored reading for [parcelId], or `null` if
+  /// the parcel has no readings yet.
+  ///
+  /// Reuses `GET /readings` (already sorted newest-first) with `limit=1`
+  /// instead of adding a dedicated "latest" endpoint.
+  Future<Reading?> getLatestReading(String parcelId) async {
+    final response = await _client.get(
+      '/readings',
+      query: {'parcel_id': parcelId, 'limit': '1'},
+    );
+    final list = (response as List).cast<Map<String, dynamic>>();
+    if (list.isEmpty) return null;
+    return Reading.fromJson(list.first);
   }
 }
