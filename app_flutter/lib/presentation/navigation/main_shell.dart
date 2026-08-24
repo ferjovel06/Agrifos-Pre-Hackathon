@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../auth/auth_provider.dart';
 import '../home/home_screen.dart';
 import '../sensor/sensor_screen.dart';
 import '../planification/planification_screen.dart';
 import '../finance/finance_screen.dart';
 import '../profile/profile_screen.dart';
+import 'widgets/app_header.dart';
 import 'widgets/app_bottom_nav.dart';
 
 /// Root shell shown after authentication.
@@ -59,12 +62,48 @@ class _MainShellState extends State<MainShell> {
     ProfileScreen(),
   ];
 
+  static const _headerTitles = [
+    'Panel General',
+    'Diagnóstico',
+    'Planificación',
+    'Finanzas',
+    'Perfil',
+  ];
+
+  static const _headerSubtitles = [
+    'Resumen operativo',
+    'Lecturas del suelo',
+    'Labores y ciclos',
+    'Ingresos y gastos',
+    'Cuenta y preferencias',
+  ];
+
   @override
   Widget build(BuildContext context) {
+    final user = context.watch<AuthProvider>().user;
+
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AppHeader(
+                title: _headerTitles[_currentIndex],
+                subtitle: _headerSubtitles[_currentIndex],
+                userName: user?.name ?? user?.email,
+                onNotificationsTap: () {},
+                onProfileTap: () => setState(() => _currentIndex = 4),
+              ),
+              const SizedBox(height: 20),
+              Expanded(
+                child: IndexedStack(index: _currentIndex, children: _screens),
+              ),
+            ],
+          ),
+        ),
       ),
       bottomNavigationBar: AppBottomNav(
         currentIndex: _currentIndex,
