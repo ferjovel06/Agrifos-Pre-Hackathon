@@ -12,11 +12,18 @@ class LatestReadingProvider extends ChangeNotifier {
   final ReadingsRepository _readingsRepository;
 
   LatestReadingProvider({ReadingsRepository? readingsRepository})
-      : _readingsRepository = readingsRepository ?? ReadingsRepository();
+    : _readingsRepository = readingsRepository ?? ReadingsRepository();
 
   LatestReadingStatus status = LatestReadingStatus.loading;
   Reading? reading;
   String? errorMessage;
+
+  void clear() {
+    reading = null;
+    errorMessage = null;
+    status = LatestReadingStatus.empty;
+    notifyListeners();
+  }
 
   Future<void> fetchLatest(String parcelId) async {
     status = LatestReadingStatus.loading;
