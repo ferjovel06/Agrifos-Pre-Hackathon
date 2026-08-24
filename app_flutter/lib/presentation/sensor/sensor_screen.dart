@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import 'sensor_provider.dart';
 import '../../core/dev_constants.dart';
 import '../../shared/field_label.dart';
-import '../auth/auth_provider.dart';
 import '../home/latest_reading_provider.dart';
 
 class SensorScreen extends StatefulWidget {
@@ -28,23 +27,14 @@ class _SensorScreenState extends State<SensorScreen> {
   @override
   Widget build(BuildContext context) {
     final sensor = context.watch<SensorProvider>();
-    final canSave = sensor.lastReading != null &&
+    final canSave =
+        sensor.lastReading != null &&
         _parcelIdController.text.trim().isNotEmpty &&
         sensor.saveStatus != SaveStatus.saving;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Sensor NPK'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Cerrar sesión',
-            onPressed: () => context.read<AuthProvider>().signOut(),
-          ),
-        ],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -115,25 +105,24 @@ class _SensorScreenState extends State<SensorScreen> {
                   ElevatedButton(
                     onPressed: canSave
                         ? () async {
-                      final sensorProvider =
-                      context.read<SensorProvider>();
-                      final parcelId = _parcelIdController.text.trim();
-                      await sensorProvider.saveCurrentReading(parcelId);
-                      if (sensorProvider.saveStatus ==
-                          SaveStatus.saved &&
-                          context.mounted) {
-                        context
-                            .read<LatestReadingProvider>()
-                            .fetchLatest(parcelId);
-                      }
-                    }
+                            final sensorProvider = context
+                                .read<SensorProvider>();
+                            final parcelId = _parcelIdController.text.trim();
+                            await sensorProvider.saveCurrentReading(parcelId);
+                            if (sensorProvider.saveStatus == SaveStatus.saved &&
+                                context.mounted) {
+                              context.read<LatestReadingProvider>().fetchLatest(
+                                parcelId,
+                              );
+                            }
+                          }
                         : null,
                     child: sensor.saveStatus == SaveStatus.saving
                         ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
                         : const Text('Guardar lectura'),
                   ),
                   const SizedBox(width: 12),

@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Header shown at the top of the Panel General screen.
-class PanelHeader extends StatelessWidget {
-  const PanelHeader({
+/// Shared header displayed above every tab in [MainShell].
+class AppHeader extends StatelessWidget {
+  const AppHeader({
     super.key,
+    required this.title,
+    required this.subtitle,
     this.userName,
     this.avatarUrl,
     this.onNotificationsTap,
@@ -13,25 +15,30 @@ class PanelHeader extends StatelessWidget {
     this.date,
   });
 
-  /// Name used to build the avatar fallback initial.
+  final String title;
+  final String subtitle;
   final String? userName;
-
-  /// Optional avatar image URL. Falls back to an icon when null.
   final String? avatarUrl;
-
   final VoidCallback? onNotificationsTap;
   final VoidCallback? onProfileTap;
-
-  /// Date shown in the top-right badge. Defaults to now.
   final DateTime? date;
 
   static const _brandGreen = Color(0xFF2E4A2E);
   static const _logoColor = Color(0xFF31543B);
   static const _titleColor = Color(0xFF472319);
-
   static const _monthAbbreviations = [
-    'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
-    'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic',
+    'Ene',
+    'Feb',
+    'Mar',
+    'Abr',
+    'May',
+    'Jun',
+    'Jul',
+    'Ago',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dic',
   ];
 
   @override
@@ -73,7 +80,9 @@ class PanelHeader extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Panel General',
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.josefinSans(
                       fontSize: 26,
                       fontWeight: FontWeight.w700,
@@ -92,13 +101,17 @@ class PanelHeader extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 6),
-                      Text(
-                        'RESUMEN OPERATIVO',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.5,
-                          color: Colors.grey.shade600,
+                      Flexible(
+                        child: Text(
+                          subtitle.toUpperCase(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.5,
+                            color: Colors.grey.shade600,
+                          ),
                         ),
                       ),
                     ],
@@ -106,6 +119,7 @@ class PanelHeader extends StatelessWidget {
                 ],
               ),
             ),
+            const SizedBox(width: 12),
             _DateBadge(label: monthLabel),
           ],
         ),
@@ -203,21 +217,21 @@ class _Avatar extends StatelessWidget {
           color: color.withValues(alpha: 0.1),
           image: avatarUrl != null
               ? DecorationImage(
-            image: NetworkImage(avatarUrl!),
-            fit: BoxFit.cover,
-          )
+                  image: NetworkImage(avatarUrl!),
+                  fit: BoxFit.cover,
+                )
               : null,
         ),
         alignment: Alignment.center,
         child: avatarUrl == null
             ? Text(
-          initial ?? '',
-          style: TextStyle(
-            color: color,
-            fontWeight: FontWeight.w700,
-            fontSize: 14,
-          ),
-        )
+                initial ?? '',
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                ),
+              )
             : null,
       ),
     );
@@ -243,7 +257,7 @@ class _DateBadge extends StatelessWidget {
         style: const TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w700,
-          color: Color(0xFF2E4A2E),
+          color: AppHeader._brandGreen,
         ),
       ),
     );

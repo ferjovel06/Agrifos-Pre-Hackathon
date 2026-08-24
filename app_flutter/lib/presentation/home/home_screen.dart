@@ -9,7 +9,6 @@ import '../sensor/sensor_provider.dart';
 import 'latest_reading_provider.dart';
 import 'widgets/last_reading_card.dart';
 import 'widgets/no_farm_state.dart';
-import 'widgets/panel_header.dart';
 
 /// Home / dashboard tab shown in [MainShell].
 ///
@@ -98,29 +97,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthProvider>();
     final farm = context.watch<FarmProvider>();
-
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              PanelHeader(
-                userName: auth.user?.name ?? auth.user?.email,
-                onNotificationsTap: () {},
-                onProfileTap: () {},
-              ),
-              const SizedBox(height: 20),
-              Expanded(child: _buildBody(farm)),
-            ],
-          ),
-        ),
-      ),
-    );
+    return _buildBody(farm);
   }
 
   Widget _buildBody(FarmProvider farm) {
