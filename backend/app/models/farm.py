@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import String, Float, Date, ForeignKey
+from sqlalchemy import String, Float, Integer, Date, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -35,6 +35,7 @@ class Parcel(Base, UUIDPKMixin, TimestampMixin):
 
     name: Mapped[str] = mapped_column(String(150))
     area_hectares: Mapped[float] = mapped_column(Float)
+    plants_per_hectare: Mapped[int | None] = mapped_column(Integer, nullable=True)
     planting_date: Mapped[Date] = mapped_column(Date)
 
     farm: Mapped["Farm"] = relationship(back_populates="parcels")

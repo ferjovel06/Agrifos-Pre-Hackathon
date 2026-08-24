@@ -6,6 +6,8 @@ import 'package:provider/provider.dart';
 
 import '../../data/api/parcel_repository.dart';
 import '../../domain/entities/crop.dart';
+import '../../domain/entities/phenological_stage.dart';
+import '../../domain/entities/variety.dart';
 import '../../shared/field_label.dart';
 import 'farm_provider.dart';
 
@@ -27,21 +29,31 @@ class _FarmRegistrationScreenState extends State<FarmRegistrationScreen> {
   final _farmAreaController = TextEditingController();
   final _parcelNameController = TextEditingController();
   final _parcelAreaController = TextEditingController();
+  final _parcelDensityController = TextEditingController();
   final _parcelRepository = ParcelRepository();
 
   int _step = 0;
   bool _isSubmitting = false;
   bool _isLocating = false;
   bool _isLoadingCrops = true;
+  bool _isLoadingVarieties = false;
+  bool _isLoadingStages = false;
   double? _latitude;
   double? _longitude;
   double? _locationAccuracy;
   String? _locationError;
   String? _cropError;
+  String? _varietyError;
+  String? _stageError;
   String? _selectedCropId;
+  String? _selectedVarietyId;
+  String? _selectedStageTemplateId;
   String? _createdFarmId;
+  String? _createdParcelId;
   DateTime _plantingDate = DateTime.now();
   List<Crop> _crops = [];
+  List<Variety> _varieties = [];
+  List<PhenologicalStageTemplate> _stageTemplates = [];
 
   static const _brandGreen = Color(0xFF2E4A2E);
   static const _titleColor = Color(0xFF472319);
@@ -63,6 +75,7 @@ class _FarmRegistrationScreenState extends State<FarmRegistrationScreen> {
     _farmAreaController.dispose();
     _parcelNameController.dispose();
     _parcelAreaController.dispose();
+    _parcelDensityController.dispose();
     super.dispose();
   }
 
@@ -80,6 +93,60 @@ class _FarmRegistrationScreenState extends State<FarmRegistrationScreen> {
       setState(() {
         _isLoadingCrops = false;
         _cropError = 'No se pudieron cargar los cultivos.';
+      });
+    }
+  }
+
+  Future<void> _loadVarieties(String cropId) async {
+    setState(() {
+      _isLoadingVarieties = true;
+      _selectedVarietyId = null;
+      _varieties = [];
+      _varietyError = null;
+    });
+
+    try {
+      final varieties = await _parcelRepository.getVarieties(cropId);
+      if (!mounted || cropId != _selectedCropId) return;
+      setState(() {
+        _varieties = varieties;
+        _isLoadingVarieties = false;
+        _varietyError = varieties.isEmpty
+            ? 'No hay variedades disponibles para este cultivo.'
+            : null;
+      });
+    } catch (_) {
+      if (!mounted || cropId != _selectedCropId) return;
+      setState(() {
+        _isLoadingVarieties = false;
+        _varietyError = 'No se pudieron cargar las variedades.';
+      });
+    }
+  }
+
+  Future<void> _loadStageTemplates(String cropId) async {
+    setState(() {
+      _isLoadingStages = true;
+      _selectedStageTemplateId = null;
+      _stageTemplates = [];
+      _stageError = null;
+    });
+
+    try {
+      final stages = await _parcelRepository.getStageTemplates(cropId);
+      if (!mounted || cropId != _selectedCropId) return;
+      setState(() {
+        _stageTemplates = stages;
+        _isLoadingStages = false;
+        _stageError = stages.isEmpty
+            ? 'No hay etapas fenológicas disponibles para este cultivo.'
+            : null;
+      });
+    } catch (_) {
+      if (!mounted || cropId != _selectedCropId) return;
+      setState(() {
+        _isLoadingStages = false;
+        _stageError = 'No se pudieron cargar las etapas fenológicas.';
       });
     }
   }
@@ -186,26 +253,50 @@ class _FarmRegistrationScreenState extends State<FarmRegistrationScreen> {
     if (!_parcelFormKey.currentState!.validate()) return;
     final farmId = _createdFarmId;
     final cropId = _selectedCropId;
-    if (farmId == null || cropId == null) {
+    final varietyId = _selectedVarietyId;
+    final stageTemplateId = _selectedStageTemplateId;
+    if (farmId == null ||
+        cropId == null ||
+        varietyId == null ||
+        stageTemplateId == null) {
       setState(() => _cropError = 'Selecciona el cultivo de la parcela.');
       return;
     }
 
     setState(() => _isSubmitting = true);
     try {
-      final parcel = await _parcelRepository.createParcel(
-        farmId: farmId,
-        cropId: cropId,
-        name: _parcelNameController.text.trim(),
-        areaHectares: double.parse(_parcelAreaController.text.trim()),
-        plantingDate: _plantingDate,
+      var parcelId = _createdParcelId;
+      if (parcelId == null) {
+        final parcel = await _parcelRepository.createParcel(
+          farmId: farmId,
+          cropId: cropId,
+          varietyId: varietyId,
+          name: _parcelNameController.text.trim(),
+          areaHectares: double.parse(_parcelAreaController.text.trim()),
+          plantsPerHectare: int.parse(_parcelDensityController.text.trim()),
+          plantingDate: _plantingDate,
+        );
+        parcelId = parcel.id;
+        if (!mounted) return;
+        setState(() => _createdParcelId = parcelId);
+      }
+
+      await _parcelRepository.createStageInstance(
+        parcelId: parcelId,
+        templateId: stageTemplateId,
+        actualDate: DateTime.now(),
       );
       if (!mounted) return;
-      Navigator.of(context).pop(parcel.id);
+      context.read<FarmProvider>().notifyParcelChanged();
+      Navigator.of(context).pop(parcelId);
     } catch (error) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
-      _showError('No se pudo registrar la parcela: $error');
+      _showError(
+        _createdParcelId == null
+            ? 'No se pudo registrar la parcela: $error'
+            : 'La parcela fue registrada, pero falta guardar su etapa. Reintenta.',
+      );
     }
   }
 
@@ -258,6 +349,15 @@ class _FarmRegistrationScreenState extends State<FarmRegistrationScreen> {
     if (value == null || value.trim().isEmpty) return 'Campo requerido.';
     final parsed = double.tryParse(value.trim());
     if (parsed == null || parsed <= 0) return 'Ingresa un área válida.';
+    return null;
+  }
+
+  String? _requiredPositiveInteger(String? value) {
+    if (value == null || value.trim().isEmpty) return 'Campo requerido.';
+    final parsed = int.tryParse(value.trim());
+    if (parsed == null || parsed <= 0) {
+      return 'Ingresa una densidad válida.';
+    }
     return null;
   }
 
@@ -454,6 +554,14 @@ class _FarmRegistrationScreenState extends State<FarmRegistrationScreen> {
                     decoration: const InputDecoration(hintText: 'Ej. 4.5'),
                     validator: _parcelAreaValidator,
                   ),
+                  const SizedBox(height: 16),
+                  const FieldLabel('DENSIDAD (PLANTAS/HA)'),
+                  TextFormField(
+                    controller: _parcelDensityController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(hintText: 'Ej. 5500'),
+                    validator: _requiredPositiveInteger,
+                  ),
                 ],
               ),
             ),
@@ -477,10 +585,16 @@ class _FarmRegistrationScreenState extends State<FarmRegistrationScreen> {
                         .toList(),
                     onChanged: _isLoadingCrops
                         ? null
-                        : (value) => setState(() {
-                            _selectedCropId = value;
-                            _cropError = null;
-                          }),
+                        : (value) {
+                            setState(() {
+                              _selectedCropId = value;
+                              _cropError = null;
+                            });
+                            if (value != null) {
+                              _loadVarieties(value);
+                              _loadStageTemplates(value);
+                            }
+                          },
                     decoration: InputDecoration(
                       hintText: _isLoadingCrops
                           ? 'Cargando cultivos...'
@@ -513,6 +627,105 @@ class _FarmRegistrationScreenState extends State<FarmRegistrationScreen> {
                     ),
                   ],
                   const SizedBox(height: 16),
+                  const FieldLabel('VARIEDAD'),
+                  DropdownButtonFormField<String>(
+                    initialValue: _selectedVarietyId,
+                    items: _varieties
+                        .map(
+                          (variety) => DropdownMenuItem(
+                            value: variety.id,
+                            child: Text(variety.name),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: _selectedCropId == null || _isLoadingVarieties
+                        ? null
+                        : (value) => setState(() {
+                            _selectedVarietyId = value;
+                            _varietyError = null;
+                          }),
+                    decoration: InputDecoration(
+                      hintText: _selectedCropId == null
+                          ? 'Primero selecciona un cultivo'
+                          : _isLoadingVarieties
+                          ? 'Cargando variedades...'
+                          : 'Seleccionar variedad',
+                    ),
+                    validator: (value) =>
+                        value == null ? 'Selecciona una variedad.' : null,
+                  ),
+                  if (_varietyError != null) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _varietyError!,
+                            style: const TextStyle(
+                              color: Colors.redAccent,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                        if (_selectedCropId != null)
+                          TextButton(
+                            onPressed: () => _loadVarieties(_selectedCropId!),
+                            child: const Text('Reintentar'),
+                          ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  const FieldLabel('ETAPA FENOLÓGICA ACTUAL'),
+                  DropdownButtonFormField<String>(
+                    initialValue: _selectedStageTemplateId,
+                    items: _stageTemplates
+                        .map(
+                          (stage) => DropdownMenuItem(
+                            value: stage.id,
+                            child: Text(stage.name),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: _selectedCropId == null || _isLoadingStages
+                        ? null
+                        : (value) => setState(() {
+                            _selectedStageTemplateId = value;
+                            _stageError = null;
+                          }),
+                    decoration: InputDecoration(
+                      hintText: _selectedCropId == null
+                          ? 'Primero selecciona un cultivo'
+                          : _isLoadingStages
+                          ? 'Cargando etapas...'
+                          : 'Seleccionar etapa actual',
+                    ),
+                    validator: (value) =>
+                        value == null ? 'Selecciona la etapa actual.' : null,
+                  ),
+                  if (_stageError != null) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _stageError!,
+                            style: const TextStyle(
+                              color: Colors.redAccent,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                        if (_selectedCropId != null)
+                          TextButton(
+                            onPressed: () =>
+                                _loadStageTemplates(_selectedCropId!),
+                            child: const Text('Reintentar'),
+                          ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 16),
                   const FieldLabel('FECHA DE SIEMBRA'),
                   OutlinedButton.icon(
                     onPressed: _pickPlantingDate,
@@ -526,7 +739,10 @@ class _FarmRegistrationScreenState extends State<FarmRegistrationScreen> {
             _PrimaryButton(
               label: 'Guardar finca y parcela',
               loading: _isSubmitting,
-              onPressed: _isLoadingCrops ? null : _submitParcel,
+              onPressed:
+                  _isLoadingCrops || _isLoadingVarieties || _isLoadingStages
+                  ? null
+                  : _submitParcel,
             ),
           ],
         ),

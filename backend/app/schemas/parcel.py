@@ -10,6 +10,7 @@ class ParcelCreate(BaseModel):
     variety_id: uuid.UUID | None = None
     name: str = Field(min_length=2, max_length=150)
     area_hectares: float = Field(gt=0)
+    plants_per_hectare: int = Field(gt=0)
     planting_date: date
 
 
@@ -18,6 +19,7 @@ class ParcelUpdate(BaseModel):
     variety_id: uuid.UUID | None = None
     name: str | None = Field(default=None, min_length=2, max_length=150)
     area_hectares: float | None = Field(default=None, gt=0)
+    plants_per_hectare: int | None = Field(default=None, gt=0)
     planting_date: date | None = None
 
 
@@ -30,6 +32,7 @@ class ParcelRead(BaseModel):
     variety_id: uuid.UUID | None
     name: str
     area_hectares: float
+    plants_per_hectare: int | None
     planting_date: date
     created_at: datetime
     updated_at: datetime
