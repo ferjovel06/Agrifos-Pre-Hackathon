@@ -29,6 +29,7 @@ class _FarmRegistrationScreenState extends State<FarmRegistrationScreen> {
   final _farmAreaController = TextEditingController();
   final _parcelNameController = TextEditingController();
   final _parcelAreaController = TextEditingController();
+  final _parcelDensityController = TextEditingController();
   final _parcelRepository = ParcelRepository();
 
   int _step = 0;
@@ -74,6 +75,7 @@ class _FarmRegistrationScreenState extends State<FarmRegistrationScreen> {
     _farmAreaController.dispose();
     _parcelNameController.dispose();
     _parcelAreaController.dispose();
+    _parcelDensityController.dispose();
     super.dispose();
   }
 
@@ -271,6 +273,7 @@ class _FarmRegistrationScreenState extends State<FarmRegistrationScreen> {
           varietyId: varietyId,
           name: _parcelNameController.text.trim(),
           areaHectares: double.parse(_parcelAreaController.text.trim()),
+          plantsPerHectare: int.parse(_parcelDensityController.text.trim()),
           plantingDate: _plantingDate,
         );
         parcelId = parcel.id;
@@ -346,6 +349,15 @@ class _FarmRegistrationScreenState extends State<FarmRegistrationScreen> {
     if (value == null || value.trim().isEmpty) return 'Campo requerido.';
     final parsed = double.tryParse(value.trim());
     if (parsed == null || parsed <= 0) return 'Ingresa un área válida.';
+    return null;
+  }
+
+  String? _requiredPositiveInteger(String? value) {
+    if (value == null || value.trim().isEmpty) return 'Campo requerido.';
+    final parsed = int.tryParse(value.trim());
+    if (parsed == null || parsed <= 0) {
+      return 'Ingresa una densidad válida.';
+    }
     return null;
   }
 
@@ -541,6 +553,14 @@ class _FarmRegistrationScreenState extends State<FarmRegistrationScreen> {
                     ),
                     decoration: const InputDecoration(hintText: 'Ej. 4.5'),
                     validator: _parcelAreaValidator,
+                  ),
+                  const SizedBox(height: 16),
+                  const FieldLabel('DENSIDAD (PLANTAS/HA)'),
+                  TextFormField(
+                    controller: _parcelDensityController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(hintText: 'Ej. 5500'),
+                    validator: _requiredPositiveInteger,
                   ),
                 ],
               ),

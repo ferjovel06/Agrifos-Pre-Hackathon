@@ -70,6 +70,7 @@ class ParcelRepository {
     required String varietyId,
     required String name,
     required double areaHectares,
+    required int plantsPerHectare,
     required DateTime plantingDate,
   }) async {
     final response = await _client.post('/parcels', {
@@ -78,6 +79,7 @@ class ParcelRepository {
       'variety_id': varietyId,
       'name': name,
       'area_hectares': areaHectares,
+      'plants_per_hectare': plantsPerHectare,
       'planting_date': _dateOnly(plantingDate),
     });
     return Parcel.fromJson(response);

@@ -8,7 +8,7 @@ class InputDataCard extends StatelessWidget {
     required this.varietyName,
     required this.stageName,
     required this.ageMonths,
-    required this.areaHectares,
+    required this.plantsPerHectare,
   });
 
   final String parcelName;
@@ -16,7 +16,7 @@ class InputDataCard extends StatelessWidget {
   final String varietyName;
   final String stageName;
   final int ageMonths;
-  final double areaHectares;
+  final int? plantsPerHectare;
 
   static const _titleColor = Color(0xFF472319);
   static const _brandGreen = Color(0xFF31543B);
@@ -87,8 +87,8 @@ class InputDataCard extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: _DataField(
-                  label: 'ÁREA (HA)',
-                  value: _formatArea(areaHectares),
+                  label: 'DENSIDAD (PL/HA)',
+                  value: plantsPerHectare?.toString() ?? 'Sin especificar',
                 ),
               ),
             ],
@@ -96,12 +96,6 @@ class InputDataCard extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  String _formatArea(double value) {
-    return value == value.roundToDouble()
-        ? value.toStringAsFixed(0)
-        : value.toStringAsFixed(2);
   }
 }
 

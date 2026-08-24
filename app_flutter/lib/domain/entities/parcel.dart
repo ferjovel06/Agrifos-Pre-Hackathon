@@ -5,6 +5,7 @@ class Parcel {
   final String? varietyId;
   final String name;
   final double areaHectares;
+  final int? plantsPerHectare;
   final DateTime plantingDate;
 
   const Parcel({
@@ -14,6 +15,7 @@ class Parcel {
     required this.varietyId,
     required this.name,
     required this.areaHectares,
+    required this.plantsPerHectare,
     required this.plantingDate,
   });
 
@@ -25,6 +27,7 @@ class Parcel {
       varietyId: json['variety_id'] as String?,
       name: json['name'] as String,
       areaHectares: (json['area_hectares'] as num).toDouble(),
+      plantsPerHectare: (json['plants_per_hectare'] as num?)?.toInt(),
       plantingDate: DateTime.parse(json['planting_date'] as String),
     );
   }

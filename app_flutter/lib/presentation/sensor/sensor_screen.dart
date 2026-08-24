@@ -265,7 +265,7 @@ class _SensorScreenState extends State<SensorScreen> {
         varietyName: _varietyName!,
         stageName: _stageName!,
         ageMonths: _ageInMonths(parcel.plantingDate),
-        areaHectares: parcel.areaHectares,
+        plantsPerHectare: parcel.plantsPerHectare,
       );
     }
 
