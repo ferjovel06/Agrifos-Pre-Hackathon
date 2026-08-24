@@ -17,9 +17,15 @@ class FarmProvider extends ChangeNotifier {
   FarmStatus status = FarmStatus.loading;
   List<Farm> farms = [];
   String? errorMessage;
+  int parcelRevision = 0;
 
   /// The user's primary farm, once loaded. `null` until a farm exists.
   Farm? get currentFarm => farms.isEmpty ? null : farms.first;
+
+  void notifyParcelChanged() {
+    parcelRevision++;
+    notifyListeners();
+  }
 
   bool _hasLoadedOnce = false;
   String? _loadedUserId;

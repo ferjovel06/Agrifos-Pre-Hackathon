@@ -169,7 +169,7 @@ class _NoParcelState extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Solo necesitamos el nombre, cultivo, área y fecha de siembra.',
+              'Solo necesitamos nombre, cultivo, variedad, etapa, área y fecha de siembra.',
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.grey.shade600, height: 1.4),
             ),
