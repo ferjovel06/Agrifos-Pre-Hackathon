@@ -9,6 +9,7 @@ import '../home/latest_reading_provider.dart';
 import 'sensor_provider.dart';
 import 'widgets/input_data_card.dart';
 import 'widgets/phenological_stage_card.dart';
+import 'widgets/telemetry_card.dart';
 
 class SensorScreen extends StatefulWidget {
   const SensorScreen({super.key});
@@ -145,10 +146,6 @@ class _SensorScreenState extends State<SensorScreen> {
   Widget build(BuildContext context) {
     final sensor = context.watch<SensorProvider>();
     final parcel = _parcel;
-    final canSave =
-        sensor.lastReading != null &&
-        parcel != null &&
-        sensor.saveStatus != SaveStatus.saving;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.only(bottom: 16),
@@ -156,106 +153,35 @@ class _SensorScreenState extends State<SensorScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildInputDataSection(),
-          const SizedBox(height: 18),
-          Row(
-            children: [
-              Text('Estado: ${sensor.status.name}'),
-              if (sensor.status == SensorStatus.reconnecting) ...[
-                const SizedBox(width: 8),
-                const SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ],
-            ],
-          ),
-          if (sensor.errorMessage != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                sensor.errorMessage!,
-                style: TextStyle(
-                  color: sensor.status == SensorStatus.reconnecting
-                      ? Colors.orange
-                      : Colors.red,
-                ),
-              ),
-            ),
           const SizedBox(height: 16),
-          Wrap(
-            spacing: 12,
-            runSpacing: 8,
-            children: [
-              ElevatedButton(
-                onPressed: parcel == null
-                    ? null
-                    : () => context.read<SensorProvider>().connectAndListen(),
-                child: const Text('Conectar sensor'),
-              ),
-              if (sensor.status == SensorStatus.connected ||
-                  sensor.status == SensorStatus.reconnecting)
-                OutlinedButton(
-                  onPressed: () => context.read<SensorProvider>().disconnect(),
-                  child: const Text('Desconectar'),
-                ),
-            ],
+          TelemetryCard(
+            status: sensor.status,
+            reading: sensor.lastReading,
+            saveStatus: sensor.saveStatus,
+            errorMessage: sensor.saveErrorMessage ?? sensor.errorMessage,
+            onAction: parcel == null
+                ? null
+                : () => _handleTelemetryAction(sensor, parcel),
           ),
-          const SizedBox(height: 24),
-          if (sensor.lastReading != null) ...[
-            Text('Nitrógeno: ${sensor.lastReading!.nitrogen}'),
-            Text('Fósforo: ${sensor.lastReading!.phosphorus}'),
-            Text('Potasio: ${sensor.lastReading!.potassium}'),
-            Text('EC: ${sensor.lastReading!.ec}'),
-            Text('pH: ${sensor.lastReading!.ph}'),
-            Text('Temperatura: ${sensor.lastReading!.temperature} °C'),
-            Text('Humedad: ${sensor.lastReading!.humidity} %'),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                ElevatedButton(
-                  onPressed: canSave
-                      ? () async {
-                          final sensorProvider = context.read<SensorProvider>();
-                          await sensorProvider.saveCurrentReading(parcel.id);
-                          if (sensorProvider.saveStatus == SaveStatus.saved &&
-                              context.mounted) {
-                            context.read<LatestReadingProvider>().fetchLatest(
-                              parcel.id,
-                            );
-                          }
-                        }
-                      : null,
-                  child: sensor.saveStatus == SaveStatus.saving
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Guardar lectura'),
-                ),
-                const SizedBox(width: 12),
-                if (sensor.saveStatus == SaveStatus.saved)
-                  const Text(
-                    'Lectura guardada ✓',
-                    style: TextStyle(color: Colors.green),
-                  ),
-              ],
-            ),
-            if (sensor.saveStatus == SaveStatus.error &&
-                sensor.saveErrorMessage != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  sensor.saveErrorMessage!,
-                  style: const TextStyle(color: Colors.red),
-                ),
-              ),
-          ] else
-            const Text('Sin lecturas todavía'),
         ],
       ),
     );
+  }
+
+  Future<void> _handleTelemetryAction(
+    SensorProvider sensor,
+    Parcel parcel,
+  ) async {
+    if (sensor.status != SensorStatus.connected) {
+      await sensor.connectAndListen();
+      return;
+    }
+
+    if (sensor.lastReading == null) return;
+    await sensor.saveCurrentReading(parcel.id);
+    if (sensor.saveStatus == SaveStatus.saved && mounted) {
+      context.read<LatestReadingProvider>().fetchLatest(parcel.id);
+    }
   }
 
   Widget _buildInputDataSection() {

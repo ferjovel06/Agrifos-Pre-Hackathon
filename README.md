@@ -183,12 +183,13 @@ Backend (`backend/.env`):
 ```env
 # Environment
 ENV=development                 # development | staging | production
-DEBUG=true
+APP_DEBUG=true
 
 # Database
 DATABASE_URL=postgresql+asyncpg://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres
 
 DB_POOL_SIZE=10
+DB_POOL_RECYCLE_SECONDS=300
 
 # Supabase
 SUPABASE_URL=https://[project-ref].supabase.co

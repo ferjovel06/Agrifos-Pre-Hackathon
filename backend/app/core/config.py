@@ -3,10 +3,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     ENV: str = "development"
-    DEBUG: bool = True
+    APP_DEBUG: bool = True
 
     DATABASE_URL: str
     DB_POOL_SIZE: int = 10
+    DB_POOL_RECYCLE_SECONDS: int = 300
 
     SUPABASE_URL: str
 
