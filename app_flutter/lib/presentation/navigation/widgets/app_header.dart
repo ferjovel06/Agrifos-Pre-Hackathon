@@ -13,6 +13,7 @@ class AppHeader extends StatelessWidget {
     this.onNotificationsTap,
     this.onProfileTap,
     this.date,
+    this.accentColor = _brandGreen,
   });
 
   final String title;
@@ -22,6 +23,7 @@ class AppHeader extends StatelessWidget {
   final VoidCallback? onNotificationsTap;
   final VoidCallback? onProfileTap;
   final DateTime? date;
+  final Color accentColor;
 
   static const _brandGreen = Color(0xFF2E4A2E);
   static const _logoColor = Color(0xFF31543B);
@@ -71,56 +73,50 @@ class AppHeader extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 6),
+        Text(
+          title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: GoogleFonts.josefinSans(
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+            color: _titleColor,
+          ),
+        ),
+        const SizedBox(height: 3),
         Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.josefinSans(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w700,
-                      color: _titleColor,
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: accentColor,
+                      shape: BoxShape.circle,
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: const BoxDecoration(
-                          color: Colors.green,
-                          shape: BoxShape.circle,
-                        ),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      subtitle.toUpperCase(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                        color: Colors.grey.shade600,
                       ),
-                      const SizedBox(width: 6),
-                      Flexible(
-                        child: Text(
-                          subtitle.toUpperCase(),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.5,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ],
               ),
             ),
             const SizedBox(width: 12),
-            _DateBadge(label: monthLabel),
+            _DateBadge(label: monthLabel, color: accentColor),
           ],
         ),
       ],
@@ -139,21 +135,21 @@ class _Wordmark extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          padding: const EdgeInsets.all(6),
+          padding: const EdgeInsets.all(5),
           decoration: BoxDecoration(
             color: color,
             borderRadius: BorderRadius.circular(8),
           ),
           child: SvgPicture.asset(
             'assets/images/agrifos_isotype.svg',
-            height: 18,
+            height: 16,
             colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
           ),
         ),
         const SizedBox(width: 8),
         SvgPicture.asset(
           'assets/images/agrifos_logotype.svg',
-          height: 20,
+          height: 18,
           colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
         ),
       ],
@@ -173,14 +169,14 @@ class _CircleIconButton extends StatelessWidget {
       onTap: onTap,
       customBorder: const CircleBorder(),
       child: Container(
-        width: 38,
-        height: 38,
+        width: 34,
+        height: 34,
         decoration: BoxDecoration(
           color: const Color(0xFFF7F5F1),
           shape: BoxShape.circle,
           border: Border.all(color: Colors.grey.shade300),
         ),
-        child: Icon(icon, size: 20, color: Colors.grey.shade700),
+        child: Icon(icon, size: 18, color: Colors.grey.shade700),
       ),
     );
   }
@@ -209,8 +205,8 @@ class _Avatar extends StatelessWidget {
       onTap: onTap,
       customBorder: const CircleBorder(),
       child: Container(
-        width: 38,
-        height: 38,
+        width: 34,
+        height: 34,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           border: Border.all(color: color, width: 1.5),
@@ -239,25 +235,26 @@ class _Avatar extends StatelessWidget {
 }
 
 class _DateBadge extends StatelessWidget {
-  const _DateBadge({required this.label});
+  const _DateBadge({required this.label, required this.color});
 
   final String label;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFFF7F5F1),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Text(
         label,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w700,
-          color: AppHeader._brandGreen,
+          color: color,
         ),
       ),
     );

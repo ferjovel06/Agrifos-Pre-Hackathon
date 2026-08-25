@@ -64,7 +64,7 @@ class _MainShellState extends State<MainShell> {
 
   static const _headerTitles = [
     'Panel General',
-    'Diagnóstico',
+    'Diagnóstico Agronómico',
     'Planificación',
     'Finanzas',
     'Perfil',
@@ -72,7 +72,7 @@ class _MainShellState extends State<MainShell> {
 
   static const _headerSubtitles = [
     'Resumen operativo',
-    'Lecturas del suelo',
+    'Análisis de suelo',
     'Labores y ciclos',
     'Ingresos y gastos',
     'Cuenta y preferencias',
@@ -86,18 +86,21 @@ class _MainShellState extends State<MainShell> {
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               AppHeader(
                 title: _headerTitles[_currentIndex],
                 subtitle: _headerSubtitles[_currentIndex],
+                accentColor: _currentIndex == 1
+                    ? const Color(0xFF4D8DFF)
+                    : const Color(0xFF31543B),
                 userName: user?.name ?? user?.email,
                 onNotificationsTap: () {},
                 onProfileTap: () => setState(() => _currentIndex = 4),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 10),
               Expanded(
                 child: IndexedStack(index: _currentIndex, children: _screens),
               ),
