@@ -67,7 +67,7 @@ class _MainShellState extends State<MainShell> {
     'Diagnóstico Agronómico',
     'Planificación',
     'Finanzas',
-    'Perfil',
+    'Configuración y Equipo',
   ];
 
   static const _headerSubtitles = [
@@ -75,7 +75,7 @@ class _MainShellState extends State<MainShell> {
     'Análisis de suelo',
     'Labores y ciclos',
     'Ingresos y gastos',
-    'Cuenta y preferencias',
+    'Administración de cuenta',
   ];
 
   @override
@@ -95,6 +95,8 @@ class _MainShellState extends State<MainShell> {
                 subtitle: _headerSubtitles[_currentIndex],
                 accentColor: _currentIndex == 1
                     ? const Color(0xFF4D8DFF)
+                    : _currentIndex == 4
+                    ? const Color(0xFF5A2D22)
                     : const Color(0xFF31543B),
                 userName: user?.name ?? user?.email,
                 onNotificationsTap: () {},

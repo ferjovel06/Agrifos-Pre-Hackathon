@@ -38,7 +38,9 @@ class ApiClient {
     final session = Supabase.instance.client.auth.currentSession;
     final token = session?.accessToken;
     if (token == null) {
-      throw ApiAuthException('No hay una sesión activa. Inicia sesión de nuevo.');
+      throw ApiAuthException(
+        'No hay una sesión activa. Inicia sesión de nuevo.',
+      );
     }
     return {
       'Content-Type': 'application/json',
@@ -46,7 +48,10 @@ class ApiClient {
     };
   }
 
-  Future<Map<String, dynamic>> post(String path, Map<String, dynamic> body) async {
+  Future<Map<String, dynamic>> post(
+    String path,
+    Map<String, dynamic> body,
+  ) async {
     final headers = await _headers();
     final response = await _http
         .post(_uri(path), headers: headers, body: jsonEncode(body))
@@ -57,8 +62,21 @@ class ApiClient {
   Future<dynamic> get(String path, {Map<String, String>? query}) async {
     final headers = await _headers();
     final uri = _uri(path).replace(queryParameters: query);
-    final response = await _http.get(uri, headers: headers).timeout(const Duration(seconds: 15));
+    final response = await _http
+        .get(uri, headers: headers)
+        .timeout(const Duration(seconds: 15));
     return _decode(response);
+  }
+
+  Future<Map<String, dynamic>> patch(
+    String path,
+    Map<String, dynamic> body,
+  ) async {
+    final headers = await _headers();
+    final response = await _http
+        .patch(_uri(path), headers: headers, body: jsonEncode(body))
+        .timeout(const Duration(seconds: 15));
+    return _decode(response) as Map<String, dynamic>;
   }
 
   dynamic _decode(http.Response response) {
