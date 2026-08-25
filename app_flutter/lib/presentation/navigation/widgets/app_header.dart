@@ -119,6 +119,21 @@ class AppHeader extends StatelessWidget {
             _DateBadge(label: monthLabel, color: accentColor),
           ],
         ),
+        const SizedBox(height: 9),
+        Container(
+          height: 2,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(2),
+            gradient: LinearGradient(
+              colors: [
+                accentColor,
+                accentColor.withValues(alpha: 0.45),
+                accentColor.withValues(alpha: 0.08),
+              ],
+              stops: const [0, 0.58, 1],
+            ),
+          ),
+        ),
       ],
     );
   }

@@ -35,7 +35,7 @@ class AuthRepository {
         password: password,
         data: {'name': name, 'role': role},
       );
-    } on AuthException catch (e) {
+    } on AuthException {
       rethrow;
     } catch (e) {
       throw AuthException('No se pudo completar el registro: $e');
@@ -56,6 +56,18 @@ class AuthRepository {
     await _client.auth.resetPasswordForEmail(email);
   }
 
+  Future<void> updateNameMetadata(String name) async {
+    try {
+      await _client.auth.updateUser(
+        UserAttributes(data: {'name': name.trim()}),
+      );
+    } on AuthException {
+      rethrow;
+    } catch (e) {
+      throw AuthException('No se pudo actualizar el perfil: $e');
+    }
+  }
+
   Future<void> signOut() async {
     await _client.auth.signOut();
   }
@@ -70,4 +82,3 @@ class AuthRepository {
     return 'Ocurrió un error. Intenta de nuevo.';
   }
 }
-

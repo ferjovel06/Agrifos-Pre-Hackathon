@@ -18,6 +18,7 @@ class AuthProvider extends ChangeNotifier {
   AuthStatus status = AuthStatus.idle;
   AppUser? user;
   String? errorMessage;
+  bool isUpdatingProfile = false;
 
   void _syncUser() {
     user = _repository.currentUser;
@@ -69,6 +70,25 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> sendPasswordReset(String email) =>
       _repository.sendPasswordReset(email);
+
+  Future<bool> updateNameMetadata(String name) async {
+    isUpdatingProfile = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      await _repository.updateNameMetadata(name);
+      _syncUser();
+      return true;
+    } catch (e) {
+      errorMessage = e is AuthException
+          ? e.message
+          : 'No se pudo actualizar el perfil.';
+      return false;
+    } finally {
+      isUpdatingProfile = false;
+      notifyListeners();
+    }
+  }
 
   Future<void> signOut() async {
     await _repository.signOut();
