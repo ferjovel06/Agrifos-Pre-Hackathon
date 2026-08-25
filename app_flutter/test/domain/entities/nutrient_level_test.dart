@@ -41,12 +41,26 @@ void main() {
 
   group('NpkThresholds.colorFor', () {
     test('cada nivel mapea a un color distinto', () {
-      expect(NpkThresholds.colorFor(NutrientLevel.low),
-          const Color(0xFFD64545));
-      expect(NpkThresholds.colorFor(NutrientLevel.adequate),
-          const Color(0xFF2563EB));
-      expect(NpkThresholds.colorFor(NutrientLevel.high),
-          const Color(0xFFE08A2C));
+      expect(
+        NpkThresholds.colorFor(NutrientLevel.low),
+        const Color(0xFFD64545),
+      );
+      expect(
+        NpkThresholds.colorFor(NutrientLevel.adequate),
+        const Color(0xFF2563EB),
+      );
+      expect(
+        NpkThresholds.colorFor(NutrientLevel.high),
+        const Color(0xFFE08A2C),
+      );
+    });
+  });
+
+  group('NpkThresholds.messageFor', () {
+    test('cada nivel tiene un mensaje de interpretación', () {
+      expect(NpkThresholds.messageFor(NutrientLevel.low), 'Nivel bajo');
+      expect(NpkThresholds.messageFor(NutrientLevel.adequate), 'Rango óptimo');
+      expect(NpkThresholds.messageFor(NutrientLevel.high), 'Nivel alto');
     });
   });
 }

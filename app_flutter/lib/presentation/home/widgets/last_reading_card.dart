@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../domain/entities/nutrient_level.dart';
 import '../../../domain/entities/reading.dart';
+import '../../../domain/reference/soil_reference_ranges.dart';
 import '../../../shared/relative_time.dart';
 
 /// "Última Lectura Global" card shown on the home dashboard: the most
@@ -26,7 +27,6 @@ class LastReadingCard extends StatelessWidget {
   static const _titleColor = Color(0xFF472319);
   static const _labelColor = Color(0xFF8A8A8A);
   static const _borderColor = Color(0xFFEDE7E0);
-  static const _neutralValueColor = Color(0xFF222222);
 
   @override
   Widget build(BuildContext context) {
@@ -57,13 +57,13 @@ class LastReadingCard extends StatelessWidget {
           else if (errorMessage != null)
             _ErrorState(message: errorMessage!, onRetry: onRetry)
           else if (reading == null)
-              const Text(
-                'Todavía no hay lecturas registradas para esta parcela.',
-                style: TextStyle(color: _labelColor),
-              )
-            else ...[
-                _MetricsGrid(reading: reading!),
-              ],
+            const Text(
+              'Todavía no hay lecturas registradas para esta parcela.',
+              style: TextStyle(color: _labelColor),
+            )
+          else ...[
+            _MetricsGrid(reading: reading!),
+          ],
           const SizedBox(height: 16),
           _ConnectionFooter(isConnected: isSensorConnected),
         ],
@@ -106,8 +106,11 @@ class _Header extends StatelessWidget {
         if (reading != null)
           Row(
             children: [
-              Icon(Icons.access_time_rounded,
-                  size: 14, color: Colors.grey.shade500),
+              Icon(
+                Icons.access_time_rounded,
+                size: 14,
+                color: Colors.grey.shade500,
+              ),
               const SizedBox(width: 4),
               Text(
                 formatRelativeTime(reading!.recordedAt),
@@ -130,6 +133,7 @@ class _MetricsGrid extends StatelessWidget {
     final nitrogenLevel = NpkThresholds.nitrogen(reading.nitrogen);
     final phosphorusLevel = NpkThresholds.phosphorus(reading.phosphorus);
     final potassiumLevel = NpkThresholds.potassium(reading.potassium);
+    final phLevel = classifySoilParameter(SoilParameterId.ph, reading.ph);
 
     return Column(
       children: [
@@ -140,6 +144,7 @@ class _MetricsGrid extends StatelessWidget {
                 label: 'Humedad',
                 value: '${reading.humidity.toStringAsFixed(0)}%',
                 valueColor: const Color(0xFF2563EB),
+                message: 'Lectura informativa',
               ),
             ),
             Expanded(
@@ -147,6 +152,7 @@ class _MetricsGrid extends StatelessWidget {
                 label: 'Nitrógeno',
                 value: '${reading.nitrogen.toStringAsFixed(0)} mg/kg',
                 valueColor: NpkThresholds.colorFor(nitrogenLevel),
+                message: NpkThresholds.messageFor(nitrogenLevel),
               ),
             ),
           ],
@@ -159,6 +165,7 @@ class _MetricsGrid extends StatelessWidget {
                 label: 'Fósforo',
                 value: '${reading.phosphorus.toStringAsFixed(0)} mg/kg',
                 valueColor: NpkThresholds.colorFor(phosphorusLevel),
+                message: NpkThresholds.messageFor(phosphorusLevel),
               ),
             ),
             Expanded(
@@ -166,6 +173,7 @@ class _MetricsGrid extends StatelessWidget {
                 label: 'Potasio',
                 value: '${reading.potassium.toStringAsFixed(0)} mg/kg',
                 valueColor: NpkThresholds.colorFor(potassiumLevel),
+                message: NpkThresholds.messageFor(potassiumLevel),
               ),
             ),
           ],
@@ -177,7 +185,8 @@ class _MetricsGrid extends StatelessWidget {
               child: _MetricTile(
                 label: 'pH',
                 value: reading.ph.toStringAsFixed(1),
-                valueColor: LastReadingCard._neutralValueColor,
+                valueColor: _colorForPhLevel(phLevel),
+                message: _messageForPhLevel(phLevel),
               ),
             ),
             const Expanded(child: SizedBox.shrink()),
@@ -186,6 +195,32 @@ class _MetricsGrid extends StatelessWidget {
       ],
     );
   }
+
+  Color _colorForPhLevel(SoilLevel level) {
+    switch (level) {
+      case SoilLevel.deficient:
+        return const Color(0xFFD64545);
+      case SoilLevel.optimal:
+        return const Color(0xFF2563EB);
+      case SoilLevel.high:
+        return const Color(0xFFE08A2C);
+      case SoilLevel.critical:
+        return const Color(0xFFB91C1C);
+    }
+  }
+
+  String _messageForPhLevel(SoilLevel level) {
+    switch (level) {
+      case SoilLevel.deficient:
+        return 'Acidez: requiere atención';
+      case SoilLevel.optimal:
+        return 'Rango óptimo';
+      case SoilLevel.high:
+        return 'Alcalinidad';
+      case SoilLevel.critical:
+        return 'Nivel crítico';
+    }
+  }
 }
 
 class _MetricTile extends StatelessWidget {
@@ -193,11 +228,13 @@ class _MetricTile extends StatelessWidget {
     required this.label,
     required this.value,
     required this.valueColor,
+    this.message,
   });
 
   final String label;
   final String value;
   final Color valueColor;
+  final String? message;
 
   @override
   Widget build(BuildContext context) {
@@ -222,6 +259,17 @@ class _MetricTile extends StatelessWidget {
             color: valueColor,
           ),
         ),
+        if (message != null) ...[
+          const SizedBox(height: 2),
+          Text(
+            message!,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: valueColor,
+            ),
+          ),
+        ],
       ],
     );
   }

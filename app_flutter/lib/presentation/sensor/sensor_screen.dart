@@ -3,10 +3,12 @@ import 'package:provider/provider.dart';
 
 import '../../data/api/parcel_repository.dart';
 import '../../domain/entities/parcel.dart';
+import '../../domain/entities/phenological_stage.dart';
 import '../farm/farm_provider.dart';
 import '../home/latest_reading_provider.dart';
 import 'sensor_provider.dart';
 import 'widgets/input_data_card.dart';
+import 'widgets/phenological_stage_card.dart';
 
 class SensorScreen extends StatefulWidget {
   const SensorScreen({super.key});
@@ -22,6 +24,8 @@ class _SensorScreenState extends State<SensorScreen> {
   String? _cropName;
   String? _varietyName;
   String? _stageName;
+  List<PhenologicalStageTemplate> _stageTemplates = const [];
+  int? _currentStageOrder;
   String? _loadedFarmId;
   int? _loadedParcelRevision;
   String? _parcelError;
@@ -62,6 +66,8 @@ class _SensorScreenState extends State<SensorScreen> {
           _cropName = null;
           _varietyName = null;
           _stageName = null;
+          _stageTemplates = const [];
+          _currentStageOrder = null;
           _isLoadingParcel = false;
           _parcelError =
               'Registra una parcela antes de realizar un diagnóstico.';
@@ -71,8 +77,12 @@ class _SensorScreenState extends State<SensorScreen> {
 
       final parcel = parcels.first;
       final varietiesFuture = _parcelRepository.getVarieties(parcel.cropId);
+      final templatesFuture = _parcelRepository.getStageTemplates(
+        parcel.cropId,
+      );
       final stagesFuture = _parcelRepository.getStageInstances(parcel.id);
       final varieties = await varietiesFuture;
+      final templates = await templatesFuture;
       final stages = await stagesFuture;
       if (!mounted || farmId != _loadedFarmId) return;
       String cropName = 'Sin especificar';
@@ -90,6 +100,7 @@ class _SensorScreenState extends State<SensorScreen> {
         }
       }
       String stageName = 'Sin especificar';
+      int? currentStageOrder;
       if (stages.isNotEmpty) {
         var currentStage = stages.first;
         for (final stage in stages.skip(1)) {
@@ -101,6 +112,7 @@ class _SensorScreenState extends State<SensorScreen> {
           }
         }
         stageName = currentStage.name;
+        currentStageOrder = currentStage.stageOrder;
       }
 
       setState(() {
@@ -108,6 +120,8 @@ class _SensorScreenState extends State<SensorScreen> {
         _cropName = cropName;
         _varietyName = varietyName;
         _stageName = stageName;
+        _stageTemplates = templates;
+        _currentStageOrder = currentStageOrder;
         _isLoadingParcel = false;
       });
     } catch (_) {
@@ -259,13 +273,24 @@ class _SensorScreenState extends State<SensorScreen> {
         _cropName != null &&
         _varietyName != null &&
         _stageName != null) {
-      return InputDataCard(
-        parcelName: parcel.name,
-        cropName: _cropName!,
-        varietyName: _varietyName!,
-        stageName: _stageName!,
-        ageMonths: _ageInMonths(parcel.plantingDate),
-        plantsPerHectare: parcel.plantsPerHectare,
+      return Column(
+        children: [
+          InputDataCard(
+            parcelName: parcel.name,
+            cropName: _cropName!,
+            varietyName: _varietyName!,
+            stageName: _stageName!,
+            ageMonths: _ageInMonths(parcel.plantingDate),
+            plantsPerHectare: parcel.plantsPerHectare,
+          ),
+          if (_stageTemplates.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            PhenologicalStageCard(
+              stages: _stageTemplates,
+              currentStageOrder: _currentStageOrder,
+            ),
+          ],
+        ],
       );
     }
 
