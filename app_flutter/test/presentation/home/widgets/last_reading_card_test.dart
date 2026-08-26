@@ -1,4 +1,5 @@
 import 'package:app_flutter/domain/entities/reading.dart';
+import 'package:app_flutter/domain/entities/sensor_diagnostic.dart';
 import 'package:app_flutter/presentation/home/widgets/last_reading_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -53,4 +54,57 @@ void main() {
       expect(find.text('Lectura informativa'), findsOneWidget);
     });
   }
+
+  testWidgets('uses the server diagnosis for a stored reading', (tester) async {
+    final reading = Reading(
+      id: 'reading',
+      parcelId: 'parcel',
+      nitrogen: 20,
+      phosphorus: 15,
+      potassium: 100,
+      ec: 0.5,
+      ph: 5.2,
+      temperature: 24,
+      humidity: 65,
+      recordedAt: DateTime.now(),
+      diagnosis: const SensorDiagnostic(
+        readingId: 'reading',
+        crop: 'Café',
+        engineVersion: 'sensor-diagnostic-1.0.0',
+        overallConfidence: 'low',
+        parameters: [
+          DiagnosticParameter(
+            parameter: 'nitrogen',
+            label: 'Nitrógeno',
+            value: 20,
+            unit: 'mg/kg',
+            level: SoilDiagnosticLevel.critical,
+            message: 'Nivel crítico del servidor',
+          ),
+        ],
+        warnings: ['Nitrógeno bajo.', 'Fósforo bajo.'],
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: LastReadingCard(
+              reading: reading,
+              isLoading: false,
+              isSensorConnected: false,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Diagnóstico preliminar'), findsOneWidget);
+    expect(find.text('Nivel crítico del servidor'), findsOneWidget);
+    expect(find.text('• Nitrógeno bajo.'), findsOneWidget);
+    expect(find.text('• Fósforo bajo.'), findsOneWidget);
+    final nitrogenValue = tester.widget<Text>(find.text('20 mg/kg'));
+    expect(nitrogenValue.style?.color, const Color(0xFFB91C1C));
+  });
 }

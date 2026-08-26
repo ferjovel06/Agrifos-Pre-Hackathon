@@ -1,3 +1,5 @@
+import 'sensor_diagnostic.dart';
+
 /// A soil/sensor reading as stored by the backend (`GET /readings`).
 ///
 /// Mirrors `ReadingRead` in `app/schemas/reading.py`. Units match what the
@@ -14,6 +16,7 @@ class Reading {
   final double temperature;
   final double humidity;
   final DateTime recordedAt;
+  final SensorDiagnostic? diagnosis;
 
   const Reading({
     required this.id,
@@ -26,6 +29,7 @@ class Reading {
     required this.temperature,
     required this.humidity,
     required this.recordedAt,
+    this.diagnosis,
   });
 
   factory Reading.fromJson(Map<String, dynamic> json) {
@@ -40,6 +44,27 @@ class Reading {
       temperature: (json['temperature'] as num).toDouble(),
       humidity: (json['humidity'] as num).toDouble(),
       recordedAt: DateTime.parse(json['recorded_at'] as String).toLocal(),
+      diagnosis: json['diagnosis'] == null
+          ? null
+          : SensorDiagnostic.fromJson(
+              json['diagnosis'] as Map<String, dynamic>,
+            ),
+    );
+  }
+
+  Reading copyWith({SensorDiagnostic? diagnosis}) {
+    return Reading(
+      id: id,
+      parcelId: parcelId,
+      nitrogen: nitrogen,
+      phosphorus: phosphorus,
+      potassium: potassium,
+      ec: ec,
+      ph: ph,
+      temperature: temperature,
+      humidity: humidity,
+      recordedAt: recordedAt,
+      diagnosis: diagnosis ?? this.diagnosis,
     );
   }
 }

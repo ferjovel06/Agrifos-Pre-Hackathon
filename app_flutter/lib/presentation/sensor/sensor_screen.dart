@@ -157,6 +157,7 @@ class _SensorScreenState extends State<SensorScreen> {
           TelemetryCard(
             status: sensor.status,
             reading: sensor.lastReading,
+            diagnosis: sensor.savedDiagnosis,
             saveStatus: sensor.saveStatus,
             errorMessage: sensor.saveErrorMessage ?? sensor.errorMessage,
             onAction: parcel == null

@@ -8,7 +8,12 @@ from app.db.session import get_db
 from app.models import Parcel, Reading, User
 from app.repositories import parcel as parcel_repo
 from app.repositories import reading as reading_repo
-from app.schemas.reading import ReadingCreate, ReadingRead
+from app.schemas.reading import ReadingCreate, ReadingCreateResponse, ReadingRead
+from app.services.diagnostic_service import (
+    UnsupportedDiagnosticCropError,
+    diagnose_sensor_reading,
+    ensure_supported_crop,
+)
 
 router = APIRouter(prefix="/readings", tags=["readings"])
 
@@ -29,17 +34,32 @@ async def _get_authorized_parcel(
     return parcel
 
 
-@router.post("", response_model=ReadingRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=ReadingCreateResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_reading(
     payload: ReadingCreate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Receives and stores a sensor reading (NPK, EC, pH, temperature, humidity)."""
-    await _get_authorized_parcel(db, payload.parcel_id, current_user)
+    parcel = await _get_authorized_parcel(db, payload.parcel_id, current_user)
+    try:
+        ensure_supported_crop(parcel.crop.name)
+    except UnsupportedDiagnosticCropError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(error),
+        ) from error
 
     reading = Reading(**payload.model_dump(exclude_none=True))
-    return await reading_repo.create_reading(db, reading)
+    reading = await reading_repo.create_reading(db, reading)
+    return ReadingCreateResponse(
+        **ReadingRead.model_validate(reading).model_dump(),
+        diagnosis=diagnose_sensor_reading(reading, parcel.crop.name),
+    )
 
 
 @router.get("", response_model=list[ReadingRead])

@@ -3,6 +3,8 @@ from datetime import datetime, timezone
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.schemas.diagnostic import SensorDiagnosticRead
+
 
 class ReadingCreate(BaseModel):
     """Payload sent by the IoT sensor or the application when registering a reading."""
@@ -13,7 +15,7 @@ class ReadingCreate(BaseModel):
     phosphorus: float = Field(..., ge=0, le=1000, description="Phosphorus (mg/kg)")
     potassium: float = Field(..., ge=0, le=1000, description="Potassium (mg/kg)")
     ec: float = Field(..., ge=0, le=20, description="Electrical conductivity (dS/m)")
-    ph: float = Field(..., ge=0, le=14, description="pH of the soil")
+    ph: float = Field(..., ge=2, le=10, description="pH of the soil")
     temperature: float = Field(..., ge=-10, le=60, description="Temperature (°C)")
     humidity: float = Field(..., ge=0, le=100, description="Relative humidity (%)")
 
@@ -47,3 +49,7 @@ class ReadingRead(BaseModel):
     temperature: float
     humidity: float
     recorded_at: datetime
+
+
+class ReadingCreateResponse(ReadingRead):
+    diagnosis: SensorDiagnosticRead

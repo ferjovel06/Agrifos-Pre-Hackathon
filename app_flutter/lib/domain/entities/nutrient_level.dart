@@ -51,7 +51,7 @@ class NpkThresholds {
       case NutrientLevel.adequate:
         return 'Rango óptimo';
       case NutrientLevel.high:
-        return 'Nivel alto';
+        return 'Aceptable, con seguimiento';
     }
   }
 }

@@ -60,7 +60,10 @@ void main() {
     test('cada nivel tiene un mensaje de interpretación', () {
       expect(NpkThresholds.messageFor(NutrientLevel.low), 'Nivel bajo');
       expect(NpkThresholds.messageFor(NutrientLevel.adequate), 'Rango óptimo');
-      expect(NpkThresholds.messageFor(NutrientLevel.high), 'Nivel alto');
+      expect(
+        NpkThresholds.messageFor(NutrientLevel.high),
+        'Aceptable, con seguimiento',
+      );
     });
   });
 }
