@@ -38,18 +38,54 @@ def make_request(**overrides):
     return FertilizationRecommendationRequest(**values)
 
 
-def calculate(request):
+def calculate(request, *, plant_age_months=32):
     return calculate_fertilization_recommendation(
         request,
         crop_name="Café",
         variety_name="Caturra",
-        plant_age_months=32,
+        plant_age_months=plant_age_months,
         area_hectares=1.5,
         plants_per_hectare=5000,
     )
 
 
 class FertilizationServiceTests(unittest.TestCase):
+    def test_uses_the_documented_levante_plan_before_25_months(self):
+        request = make_request(
+            soil=SoilAssessmentInput(
+                source=SoilSource.SENSOR,
+                nitrogen=NutrientStatus.DEFICIENT,
+                phosphorus=NutrientStatus.DEFICIENT,
+                potassium=NutrientStatus.DEFICIENT,
+                ph=5.2,
+                ec_ds_m=0.5,
+            )
+        )
+        result = calculate(request, plant_age_months=22)
+
+        self.assertEqual(result.recommendation_status, "young_crop_reference")
+        self.assertEqual(result.target_green_kg_ha, 0)
+        self.assertEqual(
+            {
+                product.product: product.g_plant
+                for product in result.fertilizer_scenarios[0].products
+            },
+            {"Urea": 114.0, "DAP": 33.0, "KCl": 25.0, "MgO": 5.0},
+        )
+        self.assertEqual(
+            [
+                row.moment
+                for row in result.fertilizer_scenarios[0].application_schedule
+            ],
+            [
+                "Mes 2 de levante",
+                "Mes 6 de levante",
+                "Mes 10 de levante",
+                "Mes 14 de levante",
+                "Mes 18 de levante",
+            ],
+        )
+
     def test_calculates_the_central_twenty_quintal_scenario(self):
         result = calculate(make_request())
 
@@ -147,7 +183,7 @@ class FertilizationServiceTests(unittest.TestCase):
             )
             self.assertLessEqual(supplied_n, 40.02)
 
-    def test_rejects_sensor_only_and_critical_ec_inputs(self):
+    def test_accepts_sensor_only_and_rejects_critical_ec_inputs(self):
         sensor_request = make_request(
             soil=SoilAssessmentInput(
                 source=SoilSource.SENSOR,
@@ -156,8 +192,14 @@ class FertilizationServiceTests(unittest.TestCase):
                 potassium=NutrientStatus.DEFICIENT,
             )
         )
-        with self.assertRaises(FertilizationInputError):
-            calculate(sensor_request)
+        sensor_result = calculate(sensor_request)
+        self.assertTrue(sensor_result.fertilizer_scenarios)
+        self.assertTrue(
+            any(
+                "sensor" in warning.lower()
+                for warning in sensor_result.warnings
+            )
+        )
 
         high_ec_request = make_request(
             soil=SoilAssessmentInput(

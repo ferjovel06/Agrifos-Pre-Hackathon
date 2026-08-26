@@ -47,6 +47,14 @@ _APPLICATION_MOMENTS = (
     ("Postcosecha / recuperación", 0.15),
 )
 
+_YOUNG_APPLICATION_MONTHS = (2, 6, 10, 14, 18)
+_YOUNG_REFERENCE_G_PLANT = {
+    "urea": 114.0,
+    "dap": 33.0,
+    "kcl": 25.0,
+    "mgo": 5.0,
+}
+
 
 class FertilizationInputError(ValueError):
     pass
@@ -58,6 +66,7 @@ class _Product:
     n: float = 0
     p2o5: float = 0
     k2o: float = 0
+    mgo: float = 0
 
 
 _PRODUCTS = {
@@ -67,6 +76,7 @@ _PRODUCTS = {
     "tsp": _Product("TSP", p2o5=0.46),
     "kcl": _Product("KCl", k2o=0.60),
     "potassium_sulfate": _Product("Sulfato de potasio", k2o=0.50),
+    "mgo": _Product("MgO", mgo=1.0),
 }
 
 
@@ -155,6 +165,7 @@ def _dose_read(
             "N": product.n,
             "P2O5": product.p2o5,
             "K2O": product.k2o,
+            "MgO": product.mgo,
         }.items()
         if fraction > 0
     }
@@ -310,6 +321,100 @@ def _build_scenario(
     )
 
 
+def _young_crop_scenario(
+    request: FertilizationRecommendationRequest,
+    plants_per_hectare: int,
+) -> tuple[FertilizerScenarioRead, list[NutrientRequirementRead]]:
+    """Build the document's accumulated fallback plan for young coffee.
+
+    The reference amounts are totals per plant distributed across months
+    2, 6, 10, 14 and 18. They are deliberately kept separate from the
+    production-by-yield calculation.
+    """
+    statuses = {
+        "N": request.soil.nitrogen,
+        "P2O5": request.soil.phosphorus,
+        "K2O": request.soil.potassium,
+        "MgO": NutrientStatus.PROBABLE_RESPONSE,
+    }
+    grams_per_plant = dict(_YOUNG_REFERENCE_G_PLANT)
+
+    if statuses["N"] == NutrientStatus.HIGH:
+        grams_per_plant.pop("urea")
+        if "dap" in grams_per_plant:
+            grams_per_plant["tsp"] = 15 / _PRODUCTS["tsp"].p2o5
+            grams_per_plant.pop("dap")
+    if statuses["P2O5"] == NutrientStatus.HIGH:
+        grams_per_plant.pop("dap", None)
+        grams_per_plant.pop("tsp", None)
+        if statuses["N"] != NutrientStatus.HIGH:
+            grams_per_plant["urea"] = 58 / _PRODUCTS["urea"].n
+    if statuses["K2O"] == NutrientStatus.HIGH:
+        grams_per_plant.pop("kcl", None)
+
+    products = [
+        _dose_read(
+            _PRODUCTS[product_key],
+            grams * plants_per_hectare / 1000,
+            request.parameters.hectares_per_manzana,
+            plants_per_hectare,
+        )
+        for product_key, grams in grams_per_plant.items()
+    ]
+
+    supplied = {"N": 0.0, "P2O5": 0.0, "K2O": 0.0, "MgO": 0.0}
+    for product in products:
+        for nutrient, amount in product.nutrient_contributions_kg_ha.items():
+            supplied[nutrient] += amount
+
+    requirements = [
+        NutrientRequirementRead(
+            nutrient=nutrient,
+            unit="kg/ha",
+            exported_kg_ha=0,
+            total_demand_kg_ha=_round(amount),
+            soil_credit_kg_ha=0,
+            fertilizer_requirement_kg_ha=_round(amount),
+            soil_status=statuses[nutrient],
+        )
+        for nutrient, amount in supplied.items()
+    ]
+
+    fraction = 1 / len(_YOUNG_APPLICATION_MONTHS)
+    schedule = [
+        ApplicationRead(
+            application_number=index,
+            moment=f"Mes {month} de levante",
+            fraction=_round(fraction),
+            products=[
+                ProductDoseRead(
+                    product=product.product,
+                    kg_ha=_round(product.kg_ha * fraction),
+                    kg_manzana=_round(product.kg_manzana * fraction),
+                    g_plant=_round(product.g_plant * fraction),
+                    nutrient_contributions_kg_ha={
+                        nutrient: _round(amount * fraction)
+                        for nutrient, amount in (
+                            product.nutrient_contributions_kg_ha.items()
+                        )
+                    },
+                )
+                for product in products
+            ],
+        )
+        for index, month in enumerate(_YOUNG_APPLICATION_MONTHS, start=1)
+    ]
+
+    return (
+        FertilizerScenarioRead(
+            name="Plan de respaldo para levante",
+            selection_method="young_crop_reference_v1",
+            is_mathematically_valid=True,
+            products=products,
+            application_schedule=schedule,
+        ),
+        requirements,
+    )
 def calculate_fertilization_recommendation(
     request: FertilizationRecommendationRequest,
     *,
@@ -329,19 +434,52 @@ def calculate_fertilization_recommendation(
         raise FertilizationInputError("Parcel area must be greater than zero.")
     if plants_per_hectare <= 0:
         raise FertilizationInputError("Plants per hectare must be greater than zero.")
-    if request.soil.source == SoilSource.SENSOR:
-        raise FertilizationInputError(
-            "A sensor-only diagnosis cannot generate a full fertilizer dose."
-        )
-
     life_stage = _life_stage(plant_age_months)
-    if plant_age_months < 25:
-        raise FertilizationInputError(
-            "The production-yield engine requires a crop age of at least 25 months."
-        )
     if request.soil.ec_ds_m is not None and request.soil.ec_ds_m >= 1.1:
         raise FertilizationInputError(
             "Electrical conductivity is too high for an automatic fertilizer plan."
+        )
+
+    if plant_age_months < 25:
+        young_scenario, nutrient_rows = _young_crop_scenario(
+            request,
+            plants_per_hectare,
+        )
+        limiting = [
+            nutrient
+            for nutrient, status in {
+                "N": request.soil.nitrogen,
+                "P": request.soil.phosphorus,
+                "K": request.soil.potassium,
+            }.items()
+            if status
+            in {NutrientStatus.DEFICIENT, NutrientStatus.PROBABLE_RESPONSE}
+        ]
+        return FertilizationRecommendationRead(
+            parcel_id=request.parcel_id,
+            crop=crop_name,
+            variety=variety_name,
+            plant_age_months=plant_age_months,
+            life_stage=life_stage,
+            fruit_stage=request.fruit_stage,
+            target_green_kg_ha=0,
+            engine_version=ENGINE_VERSION,
+            recommendation_status="young_crop_reference",
+            nutrient_requirements=nutrient_rows,
+            fertilizer_scenarios=[young_scenario],
+            limiting_nutrients=limiting,
+            warnings=[
+                "Plan general acumulado para levante; no es una receta universal.",
+                "Revisar las aplicaciones ya realizadas antes de usar el plan.",
+                "El plan se distribuye entre los meses 2, 6, 10, 14 y 18.",
+            ],
+            assumptions=[
+                "Referencia de levante: 114 g de urea, 33 g de DAP, 25 g "
+                "de KCl y 5 g de MgO por planta acumulados.",
+                f"Densidad registrada: {plants_per_hectare} plantas/ha.",
+                "Fuente: Informe_fenologia_y_motor_fertilizacion_cafe_APA7, "
+                "sección 6.1.",
+            ],
         )
 
     target_green_kg_ha = _target_green_kg_ha(request)
@@ -378,6 +516,10 @@ def calculate_fertilization_recommendation(
         "Verificar el grado garantizado de cada producto antes de aplicar el plan.",
         "Ajustar las fechas de aplicación a la lluvia, humedad y etapa observada en campo.",
     ]
+    if request.soil.source == SoilSource.SENSOR:
+        warnings.append(
+            "Plan calculado con la clasificación de la lectura del sensor."
+        )
     if high_ec:
         warnings.append(
             "Conductividad eléctrica elevada; se excluyó KCl y se priorizó bajo cloruro."
