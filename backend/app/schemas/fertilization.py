@@ -1,0 +1,140 @@
+import uuid
+from enum import Enum
+
+from pydantic import BaseModel, Field, model_validator
+
+
+class YieldUnit(str, Enum):
+    KG_GREEN_HA = "kg_green_ha"
+    QQ_GOLD_HA = "qq_gold_ha"
+    QQ_CHERRY_HA = "qq_cherry_ha"
+
+
+class SoilSource(str, Enum):
+    SENSOR = "sensor"
+    LABORATORY = "laboratory"
+    MIXED = "mixed"
+
+
+class NutrientStatus(str, Enum):
+    DEFICIENT = "deficient"
+    PROBABLE_RESPONSE = "probable_response"
+    ADEQUATE = "adequate"
+    HIGH = "high"
+
+
+class FruitStage(str, Enum):
+    NO_FLOWERING = "no_flowering"
+    FLOWERING = "flowering"
+    FRUIT_SET = "fruit_set"
+    EXPANSION = "expansion"
+    FILLING = "filling"
+    RIPENING = "ripening"
+    HARVEST = "harvest"
+
+
+class LifeStage(str, Enum):
+    NURSERY = "nursery"
+    ESTABLISHMENT = "establishment"
+    VEGETATIVE_GROWTH = "vegetative_growth"
+    INITIAL_PRODUCTION = "initial_production"
+    STABLE_PRODUCTION = "stable_production"
+
+
+class SoilAssessmentInput(BaseModel):
+    source: SoilSource
+    nitrogen: NutrientStatus
+    phosphorus: NutrientStatus
+    potassium: NutrientStatus
+    phosphorus_method: str | None = None
+    potassium_method: str | None = None
+    ph: float | None = Field(default=None, ge=2, le=10)
+    ec_ds_m: float | None = Field(default=None, ge=0, le=20)
+    acidity_reserve_available: bool = False
+
+    @model_validator(mode="after")
+    def require_laboratory_methods(self):
+        if self.source in {SoilSource.LABORATORY, SoilSource.MIXED}:
+            if (
+                not self.phosphorus_method
+                or not self.phosphorus_method.strip()
+                or not self.potassium_method
+                or not self.potassium_method.strip()
+            ):
+                raise ValueError(
+                    "Laboratory and mixed assessments require phosphorus_method "
+                    "and potassium_method."
+                )
+        return self
+
+
+class FertilizationParametersInput(BaseModel):
+    maintenance_factor: float = Field(default=0.25, ge=0.10, le=0.35)
+    nitrogen_efficiency: float = Field(default=0.50, ge=0.40, le=0.60)
+    phosphorus_efficiency: float = Field(default=0.30, ge=0.20, le=0.40)
+    potassium_efficiency: float = Field(default=0.55, ge=0.40, le=0.70)
+    max_n_kg_ha_per_application: float = Field(default=40, ge=20, le=60)
+    kg_per_qq_gold: float = Field(default=46, ge=45.36, le=46)
+    cherry_to_green_factor: float = Field(default=5.0, ge=4.5, le=6.0)
+    hectares_per_manzana: float = Field(default=0.7042, gt=0)
+
+
+class FertilizationRecommendationRequest(BaseModel):
+    parcel_id: uuid.UUID
+    target_yield: float = Field(gt=0)
+    yield_unit: YieldUnit
+    fruit_stage: FruitStage
+    soil: SoilAssessmentInput
+    parameters: FertilizationParametersInput = Field(
+        default_factory=FertilizationParametersInput
+    )
+
+
+class NutrientRequirementRead(BaseModel):
+    nutrient: str
+    unit: str
+    exported_kg_ha: float
+    total_demand_kg_ha: float
+    soil_credit_kg_ha: float
+    fertilizer_requirement_kg_ha: float
+    soil_status: NutrientStatus
+
+
+class ProductDoseRead(BaseModel):
+    product: str
+    kg_ha: float
+    kg_manzana: float
+    g_plant: float
+    nutrient_contributions_kg_ha: dict[str, float]
+
+
+class ApplicationRead(BaseModel):
+    application_number: int
+    moment: str
+    fraction: float
+    products: list[ProductDoseRead]
+
+
+class FertilizerScenarioRead(BaseModel):
+    name: str
+    selection_method: str
+    is_mathematically_valid: bool
+    products: list[ProductDoseRead]
+    application_schedule: list[ApplicationRead]
+
+
+class FertilizationRecommendationRead(BaseModel):
+    parcel_id: uuid.UUID
+    crop: str
+    variety: str
+    plant_age_months: int
+    life_stage: LifeStage
+    fruit_stage: FruitStage
+    target_green_kg_ha: float
+    engine_version: str
+    recommendation_status: str
+    nutrient_requirements: list[NutrientRequirementRead]
+    fertilizer_scenarios: list[FertilizerScenarioRead]
+    limiting_nutrients: list[str]
+    warnings: list[str]
+    assumptions: list[str]
