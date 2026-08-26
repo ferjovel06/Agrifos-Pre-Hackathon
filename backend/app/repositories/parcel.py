@@ -9,7 +9,9 @@ from app.models import Parcel
 
 async def get_parcel(db: AsyncSession, parcel_id: uuid.UUID) -> Parcel | None:
     result = await db.execute(
-        select(Parcel).options(joinedload(Parcel.farm)).where(Parcel.id == parcel_id)
+        select(Parcel)
+        .options(joinedload(Parcel.farm), joinedload(Parcel.crop))
+        .where(Parcel.id == parcel_id)
     )
     return result.scalar_one_or_none()
 

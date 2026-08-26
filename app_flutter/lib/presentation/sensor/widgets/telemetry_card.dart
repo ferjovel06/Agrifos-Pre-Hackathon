@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../data/sensor/usb_sensor_service.dart';
 import '../../../domain/entities/nutrient_level.dart';
+import '../../../domain/entities/sensor_diagnostic.dart';
 import '../../../domain/reference/soil_reference_ranges.dart';
 import '../sensor_provider.dart';
 
@@ -12,12 +13,14 @@ class TelemetryCard extends StatelessWidget {
     required this.reading,
     required this.saveStatus,
     required this.onAction,
+    this.diagnosis,
     this.errorMessage,
   });
 
   final SensorStatus status;
   final SensorReading? reading;
   final SaveStatus saveStatus;
+  final SensorDiagnostic? diagnosis;
   final VoidCallback? onAction;
   final String? errorMessage;
 
@@ -35,6 +38,10 @@ class TelemetryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final serverPh = diagnosis?.parameter('ph');
+    final nitrogen = diagnosis?.parameter('nitrogen');
+    final phosphorus = diagnosis?.parameter('phosphorus');
+    final potassium = diagnosis?.parameter('potassium');
     final phLevel = reading == null
         ? null
         : classifySoilParameter(SoilParameterId.ph, reading!.ph);
@@ -97,7 +104,9 @@ class TelemetryCard extends StatelessWidget {
                   value: reading?.ph.toStringAsFixed(1) ?? '—',
                   color: phLevel == null
                       ? _mutedText
-                      : _colorForSoilLevel(phLevel),
+                      : serverPh == null
+                      ? _colorForSoilLevel(phLevel)
+                      : _colorForDiagnosticLevel(serverPh.level),
                 ),
               ),
             ],
@@ -126,6 +135,7 @@ class TelemetryCard extends StatelessWidget {
                   level: reading == null
                       ? null
                       : NpkThresholds.nitrogen(reading!.nitrogen),
+                  diagnosticLevel: nitrogen?.level,
                 ),
                 const SizedBox(height: 12),
                 _NutrientBar(
@@ -135,6 +145,7 @@ class TelemetryCard extends StatelessWidget {
                   level: reading == null
                       ? null
                       : NpkThresholds.phosphorus(reading!.phosphorus),
+                  diagnosticLevel: phosphorus?.level,
                 ),
                 const SizedBox(height: 12),
                 _NutrientBar(
@@ -144,6 +155,7 @@ class TelemetryCard extends StatelessWidget {
                   level: reading == null
                       ? null
                       : NpkThresholds.potassium(reading!.potassium),
+                  diagnosticLevel: potassium?.level,
                 ),
               ],
             ),
@@ -282,6 +294,10 @@ class TelemetryCard extends StatelessWidget {
   }
 
   String? get _statusMessage {
+    if (saveStatus == SaveStatus.saved && diagnosis != null) {
+      final warnings = diagnosis!.actionableWarnings;
+      return warnings.isEmpty ? diagnosis!.displayLabel : warnings.join(' · ');
+    }
     if (saveStatus == SaveStatus.saved) return 'Muestra guardada correctamente';
     if (errorMessage != null && errorMessage!.trim().isNotEmpty) {
       return errorMessage;
@@ -307,6 +323,19 @@ class TelemetryCard extends StatelessWidget {
       case SoilLevel.high:
         return const Color(0xFFE08A2C);
       case SoilLevel.critical:
+        return const Color(0xFFEF5350);
+    }
+  }
+
+  Color _colorForDiagnosticLevel(SoilDiagnosticLevel level) {
+    switch (level) {
+      case SoilDiagnosticLevel.deficient:
+        return const Color(0xFFD64545);
+      case SoilDiagnosticLevel.optimal:
+        return const Color(0xFF3B8A61);
+      case SoilDiagnosticLevel.high:
+        return const Color(0xFFE08A2C);
+      case SoilDiagnosticLevel.critical:
         return const Color(0xFFEF5350);
     }
   }
@@ -427,16 +456,20 @@ class _NutrientBar extends StatelessWidget {
     required this.value,
     required this.optimalMax,
     required this.level,
+    this.diagnosticLevel,
   });
 
   final String label;
   final double? value;
   final double optimalMax;
   final NutrientLevel? level;
+  final SoilDiagnosticLevel? diagnosticLevel;
 
   @override
   Widget build(BuildContext context) {
-    final color = level == null
+    final color = diagnosticLevel != null
+        ? _diagnosticColor(diagnosticLevel!)
+        : level == null
         ? TelemetryCard._mutedText
         : NpkThresholds.colorFor(level!);
     final progress = value == null
@@ -483,5 +516,18 @@ class _NutrientBar extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  Color _diagnosticColor(SoilDiagnosticLevel level) {
+    switch (level) {
+      case SoilDiagnosticLevel.deficient:
+        return const Color(0xFFD64545);
+      case SoilDiagnosticLevel.optimal:
+        return const Color(0xFF3B8A61);
+      case SoilDiagnosticLevel.high:
+        return const Color(0xFFE08A2C);
+      case SoilDiagnosticLevel.critical:
+        return const Color(0xFFEF5350);
+    }
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../data/api/api_client.dart';
 import '../../data/api/readings_repository.dart';
 import '../../data/sensor/usb_sensor_service.dart';
+import '../../domain/entities/sensor_diagnostic.dart';
 
 enum SensorStatus { disconnected, connecting, connected, reconnecting, error }
 
@@ -17,6 +18,7 @@ class SensorProvider extends ChangeNotifier {
 
   SaveStatus saveStatus = SaveStatus.idle;
   String? saveErrorMessage;
+  SensorDiagnostic? savedDiagnosis;
 
   SensorProvider({ReadingsRepository? readingsRepository})
     : _readingsRepository = readingsRepository ?? ReadingsRepository() {
@@ -86,6 +88,7 @@ class SensorProvider extends ChangeNotifier {
     _service.readings().listen(
       (reading) {
         lastReading = reading;
+        savedDiagnosis = null;
         saveStatus = SaveStatus.idle;
         saveErrorMessage = null;
         notifyListeners();
@@ -136,6 +139,7 @@ class SensorProvider extends ChangeNotifier {
         (reading) {
           _retryCount = 0;
           lastReading = reading;
+          savedDiagnosis = null;
           saveStatus = SaveStatus.idle;
           saveErrorMessage = null;
           notifyListeners();
@@ -163,10 +167,11 @@ class SensorProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _readingsRepository.submitReading(
+      final savedReading = await _readingsRepository.submitReading(
         parcelId: parcelId,
         reading: reading,
       );
+      savedDiagnosis = savedReading.diagnosis;
       saveStatus = SaveStatus.saved;
       notifyListeners();
     } on ApiAuthException catch (e) {
@@ -189,6 +194,7 @@ class SensorProvider extends ChangeNotifier {
     await _service.dispose();
     status = SensorStatus.disconnected;
     lastReading = null;
+    savedDiagnosis = null;
     errorMessage = null;
     saveStatus = SaveStatus.idle;
     saveErrorMessage = null;

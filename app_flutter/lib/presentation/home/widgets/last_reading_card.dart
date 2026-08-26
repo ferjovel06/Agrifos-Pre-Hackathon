@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../domain/entities/nutrient_level.dart';
 import '../../../domain/entities/reading.dart';
+import '../../../domain/entities/sensor_diagnostic.dart';
 import '../../../domain/reference/soil_reference_ranges.dart';
 import '../../../shared/relative_time.dart';
 
@@ -62,10 +63,60 @@ class LastReadingCard extends StatelessWidget {
               style: TextStyle(color: _labelColor),
             )
           else ...[
+            if (reading!.diagnosis != null) ...[
+              _ServerDiagnosticNotice(diagnosis: reading!.diagnosis!),
+              const SizedBox(height: 14),
+            ],
             _MetricsGrid(reading: reading!),
           ],
           const SizedBox(height: 16),
           _ConnectionFooter(isConnected: isSensorConnected),
+        ],
+      ),
+    );
+  }
+}
+
+class _ServerDiagnosticNotice extends StatelessWidget {
+  const _ServerDiagnosticNotice({required this.diagnosis});
+
+  final SensorDiagnostic diagnosis;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F6F2),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            diagnosis.displayLabel,
+            style: const TextStyle(
+              color: Color(0xFF315E45),
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          if (diagnosis.actionableWarnings.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            for (final warning in diagnosis.actionableWarnings)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  '• $warning',
+                  style: const TextStyle(
+                    color: Color(0xFF725B52),
+                    fontSize: 11,
+                    height: 1.3,
+                  ),
+                ),
+              ),
+          ],
         ],
       ),
     );
@@ -130,6 +181,10 @@ class _MetricsGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final serverNitrogen = reading.diagnosis?.parameter('nitrogen');
+    final serverPhosphorus = reading.diagnosis?.parameter('phosphorus');
+    final serverPotassium = reading.diagnosis?.parameter('potassium');
+    final serverPh = reading.diagnosis?.parameter('ph');
     final nitrogenLevel = NpkThresholds.nitrogen(reading.nitrogen);
     final phosphorusLevel = NpkThresholds.phosphorus(reading.phosphorus);
     final potassiumLevel = NpkThresholds.potassium(reading.potassium);
@@ -151,8 +206,12 @@ class _MetricsGrid extends StatelessWidget {
               child: _MetricTile(
                 label: 'Nitrógeno',
                 value: '${reading.nitrogen.toStringAsFixed(0)} mg/kg',
-                valueColor: NpkThresholds.colorFor(nitrogenLevel),
-                message: NpkThresholds.messageFor(nitrogenLevel),
+                valueColor: serverNitrogen == null
+                    ? NpkThresholds.colorFor(nitrogenLevel)
+                    : _colorForDiagnosticLevel(serverNitrogen.level),
+                message:
+                    serverNitrogen?.message ??
+                    NpkThresholds.messageFor(nitrogenLevel),
               ),
             ),
           ],
@@ -164,16 +223,24 @@ class _MetricsGrid extends StatelessWidget {
               child: _MetricTile(
                 label: 'Fósforo',
                 value: '${reading.phosphorus.toStringAsFixed(0)} mg/kg',
-                valueColor: NpkThresholds.colorFor(phosphorusLevel),
-                message: NpkThresholds.messageFor(phosphorusLevel),
+                valueColor: serverPhosphorus == null
+                    ? NpkThresholds.colorFor(phosphorusLevel)
+                    : _colorForDiagnosticLevel(serverPhosphorus.level),
+                message:
+                    serverPhosphorus?.message ??
+                    NpkThresholds.messageFor(phosphorusLevel),
               ),
             ),
             Expanded(
               child: _MetricTile(
                 label: 'Potasio',
                 value: '${reading.potassium.toStringAsFixed(0)} mg/kg',
-                valueColor: NpkThresholds.colorFor(potassiumLevel),
-                message: NpkThresholds.messageFor(potassiumLevel),
+                valueColor: serverPotassium == null
+                    ? NpkThresholds.colorFor(potassiumLevel)
+                    : _colorForDiagnosticLevel(serverPotassium.level),
+                message:
+                    serverPotassium?.message ??
+                    NpkThresholds.messageFor(potassiumLevel),
               ),
             ),
           ],
@@ -185,8 +252,10 @@ class _MetricsGrid extends StatelessWidget {
               child: _MetricTile(
                 label: 'pH',
                 value: reading.ph.toStringAsFixed(1),
-                valueColor: _colorForPhLevel(phLevel),
-                message: _messageForPhLevel(phLevel),
+                valueColor: serverPh == null
+                    ? _colorForPhLevel(phLevel)
+                    : _colorForDiagnosticLevel(serverPh.level, ph: true),
+                message: serverPh?.message ?? _messageForPhLevel(phLevel),
               ),
             ),
             const Expanded(child: SizedBox.shrink()),
@@ -205,6 +274,19 @@ class _MetricsGrid extends StatelessWidget {
       case SoilLevel.high:
         return const Color(0xFFE08A2C);
       case SoilLevel.critical:
+        return const Color(0xFFB91C1C);
+    }
+  }
+
+  Color _colorForDiagnosticLevel(SoilDiagnosticLevel level, {bool ph = false}) {
+    switch (level) {
+      case SoilDiagnosticLevel.deficient:
+        return const Color(0xFFD64545);
+      case SoilDiagnosticLevel.optimal:
+        return ph ? const Color(0xFF2563EB) : const Color(0xFF3B8A61);
+      case SoilDiagnosticLevel.high:
+        return const Color(0xFFE08A2C);
+      case SoilDiagnosticLevel.critical:
         return const Color(0xFFB91C1C);
     }
   }

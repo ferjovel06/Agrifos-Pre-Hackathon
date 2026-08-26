@@ -1,4 +1,5 @@
 import 'package:app_flutter/data/sensor/usb_sensor_service.dart';
+import 'package:app_flutter/domain/entities/sensor_diagnostic.dart';
 import 'package:app_flutter/presentation/sensor/sensor_provider.dart';
 import 'package:app_flutter/presentation/sensor/widgets/telemetry_card.dart';
 import 'package:flutter/material.dart';
@@ -72,6 +73,90 @@ void main() {
 
     await tester.tap(find.text('Conectar sensor'));
     expect(connectRequested, isTrue);
+  });
+
+  testWidgets('uses the backend diagnosis after saving a sample', (
+    tester,
+  ) async {
+    final reading = SensorReading(
+      nitrogen: 20,
+      phosphorus: 15,
+      potassium: 100,
+      ec: 0.5,
+      ph: 6.2,
+      temperature: 24,
+      humidity: 72,
+    );
+    const diagnosis = SensorDiagnostic(
+      readingId: 'reading',
+      crop: 'Café',
+      engineVersion: 'sensor-diagnostic-1.0.0',
+      overallConfidence: 'low',
+      parameters: [
+        DiagnosticParameter(
+          parameter: 'ph',
+          label: 'pH',
+          value: 6.2,
+          unit: 'SU',
+          level: SoilDiagnosticLevel.optimal,
+          message: 'Rango adecuado',
+        ),
+      ],
+      warnings: [],
+    );
+
+    await tester.pumpWidget(
+      _TestApp(
+        child: TelemetryCard(
+          status: SensorStatus.connected,
+          reading: reading,
+          saveStatus: SaveStatus.saved,
+          diagnosis: diagnosis,
+          onAction: () {},
+        ),
+      ),
+    );
+
+    expect(find.text('Diagnóstico preliminar'), findsOneWidget);
+    final phText = tester.widget<Text>(find.text('6.2'));
+    expect(phText.style?.color, const Color(0xFF3B8A61));
+  });
+
+  testWidgets('shows every altered parameter without laboratory text', (
+    tester,
+  ) async {
+    final reading = SensorReading(
+      nitrogen: 5,
+      phosphorus: 5,
+      potassium: 100,
+      ec: 0.5,
+      ph: 5.2,
+      temperature: 24,
+      humidity: 72,
+    );
+    const diagnosis = SensorDiagnostic(
+      readingId: 'reading',
+      crop: 'Café',
+      engineVersion: 'sensor-diagnostic-1.0.0',
+      overallConfidence: 'low',
+      parameters: [],
+      warnings: ['Nitrógeno bajo.', 'Fósforo bajo.'],
+    );
+
+    await tester.pumpWidget(
+      _TestApp(
+        child: TelemetryCard(
+          status: SensorStatus.connected,
+          reading: reading,
+          saveStatus: SaveStatus.saved,
+          diagnosis: diagnosis,
+          onAction: () {},
+        ),
+      ),
+    );
+
+    expect(find.text('Nitrógeno bajo. · Fósforo bajo.'), findsOneWidget);
+    expect(find.textContaining('laboratorio'), findsNothing);
   });
 }
 
