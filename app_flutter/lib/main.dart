@@ -10,6 +10,7 @@ import 'presentation/auth/auth_provider.dart';
 import 'presentation/auth/auth_gate.dart';
 import 'presentation/farm/farm_provider.dart';
 import 'presentation/home/latest_reading_provider.dart';
+import 'presentation/home/weather_provider.dart';
 import 'presentation/sensor/sensor_provider.dart';
 
 Future<void> main() async {
@@ -34,6 +35,7 @@ class AgrifosApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider(AuthRepository())),
         ChangeNotifierProvider(create: (_) => SensorProvider()),
         ChangeNotifierProvider(create: (_) => LatestReadingProvider()),
+        ChangeNotifierProvider(create: (_) => WeatherProvider()),
         ChangeNotifierProvider(create: (_) => FarmProvider()),
       ],
       child: MaterialApp(
@@ -45,7 +47,10 @@ class AgrifosApp extends StatelessWidget {
           inputDecorationTheme: InputDecorationTheme(
             filled: true,
             fillColor: const Color(0xFFF7F5F1),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
               borderSide: BorderSide.none,
@@ -56,7 +61,10 @@ class AgrifosApp extends StatelessWidget {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: Color(0xFF2E4A2E), width: 1.5),
+              borderSide: const BorderSide(
+                color: Color(0xFF2E4A2E),
+                width: 1.5,
+              ),
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
@@ -66,7 +74,10 @@ class AgrifosApp extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
               borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
             ),
-            hintStyle: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w400),
+            hintStyle: TextStyle(
+              color: Colors.grey.shade500,
+              fontWeight: FontWeight.w400,
+            ),
             errorStyle: const TextStyle(fontSize: 12),
           ),
         ),
