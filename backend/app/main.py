@@ -8,6 +8,7 @@ from app.routers import (
     diagnostic,
     farms,
     fertilization,
+    lab_analysis,
     parcels,
     phenology,
     readings,
@@ -26,6 +27,7 @@ app.include_router(varieties.router)
 app.include_router(phenology.router)
 app.include_router(diagnostic.router)
 app.include_router(fertilization.router)
+app.include_router(lab_analysis.router)
 
 
 @app.get("/health/db")
