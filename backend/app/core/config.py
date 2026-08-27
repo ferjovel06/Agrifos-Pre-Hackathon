@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     DB_POOL_RECYCLE_SECONDS: int = 300
 
     SUPABASE_URL: str
+    WEATHER_API_BASE_URL: str = "https://api.open-meteo.com/v1"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
