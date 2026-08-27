@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -53,18 +54,16 @@ class ApiClient {
     Map<String, dynamic> body,
   ) async {
     final headers = await _headers();
-    final response = await _http
-        .post(_uri(path), headers: headers, body: jsonEncode(body))
-        .timeout(const Duration(seconds: 15));
+    final response = await _send(
+      _http.post(_uri(path), headers: headers, body: jsonEncode(body)),
+    );
     return _decode(response);
   }
 
   Future<dynamic> get(String path, {Map<String, String>? query}) async {
     final headers = await _headers();
     final uri = _uri(path).replace(queryParameters: query);
-    final response = await _http
-        .get(uri, headers: headers)
-        .timeout(const Duration(seconds: 15));
+    final response = await _send(_http.get(uri, headers: headers));
     return _decode(response);
   }
 
@@ -73,10 +72,32 @@ class ApiClient {
     Map<String, dynamic> body,
   ) async {
     final headers = await _headers();
-    final response = await _http
-        .patch(_uri(path), headers: headers, body: jsonEncode(body))
-        .timeout(const Duration(seconds: 15));
+    final response = await _send(
+      _http.patch(_uri(path), headers: headers, body: jsonEncode(body)),
+    );
     return _decode(response) as Map<String, dynamic>;
+  }
+
+  Future<void> delete(String path) async {
+    final headers = await _headers();
+    final response = await _send(_http.delete(_uri(path), headers: headers));
+    _decode(response);
+  }
+
+  Future<http.Response> _send(Future<http.Response> request) async {
+    try {
+      return await request.timeout(const Duration(seconds: 15));
+    } on TimeoutException {
+      throw ApiException(
+        408,
+        'El servidor tardó demasiado en responder. Intenta nuevamente.',
+      );
+    } on http.ClientException {
+      throw ApiException(
+        0,
+        'No se pudo conectar con el servidor. Revisa tu conexión.',
+      );
+    }
   }
 
   dynamic _decode(http.Response response) {
