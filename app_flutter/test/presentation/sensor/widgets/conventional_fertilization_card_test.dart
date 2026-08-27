@@ -1,5 +1,5 @@
-import 'package:agrifos/domain/entities/fertilization_recommendation.dart';
-import 'package:agrifos/presentation/sensor/widgets/conventional_fertilization_card.dart';
+import 'package:app_flutter/domain/entities/fertilization_recommendation.dart';
+import 'package:app_flutter/presentation/sensor/widgets/conventional_fertilization_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
