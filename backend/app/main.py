@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.routers import (
+    alerts,
     crops,
     diagnostic,
     farms,
@@ -19,6 +20,7 @@ from app.routers import (
 
 app = FastAPI(title="Agrifos API")
 
+app.include_router(alerts.router)
 app.include_router(users.router)
 app.include_router(readings.router)
 app.include_router(farms.router)
