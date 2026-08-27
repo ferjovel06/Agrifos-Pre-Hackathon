@@ -14,6 +14,7 @@ from app.routers import (
     readings,
     users,
     varieties,
+    weather,
 )
 
 app = FastAPI(title="Agrifos API")
@@ -28,6 +29,7 @@ app.include_router(phenology.router)
 app.include_router(diagnostic.router)
 app.include_router(fertilization.router)
 app.include_router(lab_analysis.router)
+app.include_router(weather.router)
 
 
 @app.get("/health/db")
