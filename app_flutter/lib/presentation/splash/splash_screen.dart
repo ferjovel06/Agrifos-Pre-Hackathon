@@ -22,7 +22,7 @@ class SplashScreen extends StatelessWidget {
               width: double.infinity,
               height: 190,
               child: SvgPicture.asset(
-                'assets/images/wave_brown.svg',
+                'assets/images/decorations/wave_brown.svg',
                 width: double.infinity,
                 height: 190,
                 fit: BoxFit.fill,
@@ -38,7 +38,7 @@ class SplashScreen extends StatelessWidget {
               width: double.infinity,
               height: 150,
               child: SvgPicture.asset(
-                'assets/images/wave_green.svg',
+                'assets/images/decorations/wave_green.svg',
                 width: double.infinity,
                 height: 150,
                 fit: BoxFit.fill,
@@ -51,13 +51,13 @@ class SplashScreen extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Image.asset(
-                  'assets/images/agrifos_splash_logo.png',
+                  'assets/images/branding/agrifos_splash_logo.png',
                   width: 140,
                   height: 140,
                 ),
                 const SizedBox(height: 12),
                 SvgPicture.asset(
-                  'assets/images/agrifos_logotype.svg',
+                  'assets/images/branding/agrifos_logotype.svg',
                   height: 32,
                   colorFilter: const ColorFilter.mode(green, BlendMode.srcIn),
                 ),

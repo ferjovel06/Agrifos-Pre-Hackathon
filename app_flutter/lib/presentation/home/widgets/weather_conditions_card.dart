@@ -29,7 +29,7 @@ class WeatherConditionsCard extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             Image.asset(
-              'assets/images/weather_background.png',
+              'assets/images/backgrounds/weather_background.png',
               fit: BoxFit.cover,
             ),
             const DecoratedBox(
