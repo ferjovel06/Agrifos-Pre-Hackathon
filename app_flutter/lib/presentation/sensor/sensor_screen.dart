@@ -3,17 +3,22 @@ import 'package:provider/provider.dart';
 
 import '../../data/api/api_client.dart';
 import '../../data/api/fertilization_repository.dart';
+import '../../data/api/lab_analysis_repository.dart';
 import '../../data/api/parcel_repository.dart';
 import '../../data/sensor/usb_sensor_service.dart';
 import '../../domain/entities/fertilization_recommendation.dart';
+import '../../domain/entities/lab_analysis.dart';
 import '../../domain/entities/parcel.dart';
 import '../../domain/entities/phenological_stage.dart';
 import '../../domain/entities/sensor_diagnostic.dart';
+import '../../domain/reference/soil_reference_ranges.dart';
 import '../farm/farm_provider.dart';
 import '../home/latest_reading_provider.dart';
+import '../lab_analysis/lab_analysis_screen.dart';
 import 'sensor_provider.dart';
 import 'widgets/conventional_fertilization_card.dart';
 import 'widgets/input_data_card.dart';
+import 'widgets/lab_analysis_card.dart';
 import 'widgets/phenological_stage_card.dart';
 import 'widgets/telemetry_card.dart';
 
@@ -27,6 +32,7 @@ class SensorScreen extends StatefulWidget {
 class _SensorScreenState extends State<SensorScreen> {
   final _parcelRepository = ParcelRepository();
   final _fertilizationRepository = FertilizationRepository();
+  final _labAnalysisRepository = LabAnalysisRepository();
 
   Parcel? _parcel;
   String? _cropName;
@@ -41,6 +47,9 @@ class _SensorScreenState extends State<SensorScreen> {
   bool _isLoadingFertilization = false;
   FertilizationRecommendation? _fertilizationRecommendation;
   String? _fertilizationError;
+  List<LabAnalysis> _labAnalyses = const [];
+  bool _isLoadingLabAnalyses = false;
+  String? _labAnalysesError;
 
   @override
   void didChangeDependencies() {
@@ -79,6 +88,8 @@ class _SensorScreenState extends State<SensorScreen> {
           _stageName = null;
           _stageTemplates = const [];
           _currentStageOrder = null;
+          _labAnalyses = const [];
+          _labAnalysesError = null;
           _isLoadingParcel = false;
           _parcelError =
               'Registra una parcela antes de realizar un diagnóstico.';
@@ -135,6 +146,7 @@ class _SensorScreenState extends State<SensorScreen> {
         _currentStageOrder = currentStageOrder;
         _isLoadingParcel = false;
       });
+      await _loadLabAnalyses(parcel.id);
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -142,6 +154,126 @@ class _SensorScreenState extends State<SensorScreen> {
         _parcelError = 'No se pudieron cargar los datos de la parcela.';
       });
     }
+  }
+
+  Future<void> _loadLabAnalyses(String parcelId) async {
+    setState(() {
+      _isLoadingLabAnalyses = true;
+      _labAnalysesError = null;
+    });
+    try {
+      final analyses = await _labAnalysisRepository.listForParcel(parcelId);
+      if (!mounted || _parcel?.id != parcelId) return;
+      setState(() {
+        _labAnalyses = analyses;
+        _isLoadingLabAnalyses = false;
+      });
+      if (analyses.isNotEmpty) {
+        await _requestLabRecommendation(_parcel!, analyses.first);
+      }
+    } catch (_) {
+      if (!mounted || _parcel?.id != parcelId) return;
+      setState(() {
+        _isLoadingLabAnalyses = false;
+        _labAnalysesError = 'No se pudieron cargar los análisis.';
+      });
+    }
+  }
+
+  Future<void> _requestLabRecommendation(
+    Parcel parcel,
+    LabAnalysis analysis,
+  ) async {
+    if ((analysis.phosphorusMethod?.trim().isEmpty ?? true) ||
+        (analysis.potassiumMethod?.trim().isEmpty ?? true)) {
+      setState(() {
+        _isLoadingFertilization = false;
+        _fertilizationRecommendation = null;
+        _fertilizationError =
+            'Edita el análisis y completa los métodos de fósforo y potasio.';
+      });
+      return;
+    }
+    setState(() {
+      _isLoadingFertilization = true;
+      _fertilizationRecommendation = null;
+      _fertilizationError = null;
+    });
+    try {
+      final recommendation = await _fertilizationRepository
+          .createRecommendation(
+            parcelId: parcel.id,
+            targetYield: 20,
+            yieldUnit: 'qq_gold_ha',
+            fruitStage: _fruitStageFor(_stageName),
+            soilSource: 'laboratory',
+            nitrogenStatus: _labNutrientStatus(
+              SoilParameterId.nitrogenTotal,
+              analysis.nitrogen,
+            ),
+            phosphorusStatus: _labNutrientStatus(
+              SoilParameterId.phosphateP,
+              analysis.phosphorus,
+            ),
+            potassiumStatus: _labNutrientStatus(
+              SoilParameterId.potassium,
+              analysis.potassium,
+            ),
+            phosphorusMethod: analysis.phosphorusMethod,
+            potassiumMethod: analysis.potassiumMethod,
+            ph: analysis.ph,
+            electricalConductivity: analysis.ec,
+          );
+      if (!mounted || _parcel?.id != parcel.id) return;
+      setState(() {
+        _fertilizationRecommendation = recommendation;
+        _isLoadingFertilization = false;
+      });
+    } on ApiAuthException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingFertilization = false;
+        _fertilizationError = error.message;
+      });
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingFertilization = false;
+        _fertilizationError = _fertilizationErrorMessage(error.message);
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingFertilization = false;
+        _fertilizationError =
+            'No se pudo generar la sugerencia con el análisis de laboratorio.';
+      });
+    }
+  }
+
+  String _labNutrientStatus(SoilParameterId parameter, double value) {
+    switch (classifySoilParameter(parameter, value)) {
+      case SoilLevel.deficient:
+        return 'deficient';
+      case SoilLevel.optimal:
+        return 'adequate';
+      case SoilLevel.high:
+      case SoilLevel.critical:
+        return 'high';
+    }
+  }
+
+  Future<void> _openLabAnalyses(Parcel parcel) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => LabAnalysisScreen(
+          parcelId: parcel.id,
+          parcelName: parcel.name,
+          repository: _labAnalysisRepository,
+        ),
+      ),
+    );
+    if (mounted) await _loadLabAnalyses(parcel.id);
   }
 
   int _ageInMonths(DateTime plantingDate) {
@@ -163,6 +295,15 @@ class _SensorScreenState extends State<SensorScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildInputDataSection(),
+          if (parcel != null) ...[
+            const SizedBox(height: 16),
+            LabAnalysisCard(
+              analyses: _labAnalyses,
+              isLoading: _isLoadingLabAnalyses,
+              errorMessage: _labAnalysesError,
+              onManage: () => _openLabAnalyses(parcel),
+            ),
+          ],
           const SizedBox(height: 16),
           TelemetryCard(
             status: sensor.status,
@@ -178,7 +319,8 @@ class _SensorScreenState extends State<SensorScreen> {
           ConventionalFertilizationCard(
             scenario: _fertilizationRecommendation?.conventionalScenario,
             isLoading: _isLoadingFertilization,
-            emptyMessage: _fertilizationError ??
+            emptyMessage:
+                _fertilizationError ??
                 'Captura una muestra para generar las fuentes y dosis.',
           ),
         ],
@@ -223,25 +365,25 @@ class _SensorScreenState extends State<SensorScreen> {
     });
 
     try {
-      final recommendation =
-          await _fertilizationRepository.createRecommendation(
-        parcelId: parcel.id,
-        targetYield: 20,
-        yieldUnit: 'qq_gold_ha',
-        fruitStage: _fruitStageFor(_stageName),
-        soilSource: 'sensor',
-        nitrogenStatus: _nutrientStatus(
-          diagnosis.parameter('nitrogen')?.level,
-        ),
-        phosphorusStatus: _nutrientStatus(
-          diagnosis.parameter('phosphorus')?.level,
-        ),
-        potassiumStatus: _nutrientStatus(
-          diagnosis.parameter('potassium')?.level,
-        ),
-        ph: reading.ph,
-        electricalConductivity: reading.ec / 1000,
-      );
+      final recommendation = await _fertilizationRepository
+          .createRecommendation(
+            parcelId: parcel.id,
+            targetYield: 20,
+            yieldUnit: 'qq_gold_ha',
+            fruitStage: _fruitStageFor(_stageName),
+            soilSource: 'sensor',
+            nitrogenStatus: _nutrientStatus(
+              diagnosis.parameter('nitrogen')?.level,
+            ),
+            phosphorusStatus: _nutrientStatus(
+              diagnosis.parameter('phosphorus')?.level,
+            ),
+            potassiumStatus: _nutrientStatus(
+              diagnosis.parameter('potassium')?.level,
+            ),
+            ph: reading.ph,
+            electricalConductivity: reading.ec / 1000,
+          );
       if (!mounted) return;
       setState(() {
         _fertilizationRecommendation = recommendation;
@@ -278,8 +420,9 @@ class _SensorScreenState extends State<SensorScreen> {
       return 'Selecciona una variedad para la parcela.';
     }
     if (normalized.contains('electrical conductivity')) {
-      return 'La conductividad eléctrica es demasiado alta para generar un '
-          'plan automático.';
+      return 'El análisis se guardó, pero una conductividad de 1.1 dS/m o '
+          'más requiere revisión por riesgo de salinidad. Verifica la unidad: '
+          'si el informe usa µS/cm, divide el valor entre 1,000.';
     }
     if (normalized.contains('sensor-only')) {
       return 'El servidor sigue usando la versión anterior. Reinicia el '
