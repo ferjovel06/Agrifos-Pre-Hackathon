@@ -17,6 +17,10 @@ class WeatherProviderUnavailable(WeatherProviderError):
     pass
 
 
+class WeatherProviderRateLimited(WeatherProviderUnavailable):
+    pass
+
+
 class OpenMeteoProvider:
     """Small adapter around Open-Meteo's public forecast endpoint."""
 
@@ -107,6 +111,10 @@ class OpenMeteoProvider:
                     "The weather service took too long to respond."
                 ) from error
             except httpx.HTTPStatusError as error:
+                if error.response.status_code == 429:
+                    raise WeatherProviderRateLimited(
+                        "The weather service rate limit was reached."
+                    ) from error
                 if error.response.status_code >= 500 and attempt == 0:
                     continue
                 raise WeatherProviderUnavailable(
