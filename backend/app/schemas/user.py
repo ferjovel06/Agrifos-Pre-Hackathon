@@ -7,6 +7,7 @@ from pydantic import BaseModel, EmailStr, Field, ConfigDict
 
 class UserRole(str, Enum):
     farmer = "farmer"
+    auditor = "auditor"
     admin = "admin"
 
 

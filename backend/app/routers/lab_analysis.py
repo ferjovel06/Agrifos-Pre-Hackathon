@@ -5,7 +5,11 @@ from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import get_current_user
+from app.core.auth import (
+    get_current_user,
+    has_global_read_access,
+    require_write_access,
+)
 from app.db.session import get_db
 from app.models import LabAnalysis, Parcel, User
 from app.repositories import lab_analysis as lab_repo
@@ -32,7 +36,7 @@ async def _get_authorized_parcel(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Parcel not found.",
         )
-    if user.role != "admin" and parcel.farm.user_id != user.id:
+    if not has_global_read_access(user) and parcel.farm.user_id != user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions.",
@@ -62,7 +66,7 @@ async def _get_authorized_analysis(
 )
 async def create_lab_analysis(
     payload: LabAnalysisCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_write_access),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_authorized_parcel(db, payload.parcel_id, current_user)
@@ -107,7 +111,7 @@ async def get_lab_analysis(
 async def update_lab_analysis(
     analysis_id: uuid.UUID,
     payload: LabAnalysisUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_write_access),
     db: AsyncSession = Depends(get_db),
 ):
     analysis = await _get_authorized_analysis(db, analysis_id, current_user)
@@ -139,7 +143,7 @@ async def update_lab_analysis(
 @router.delete("/{analysis_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_lab_analysis(
     analysis_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_write_access),
     db: AsyncSession = Depends(get_db),
 ):
     analysis = await _get_authorized_analysis(db, analysis_id, current_user)

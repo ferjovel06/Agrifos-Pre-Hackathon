@@ -10,6 +10,9 @@ from app.repositories import user as user_repo
 
 bearer_scheme = HTTPBearer()
 
+GLOBAL_READ_ROLES = frozenset({"admin", "auditor"})
+WRITE_ROLES = frozenset({"admin", "farmer"})
+
 _jwks_client = jwt.PyJWKClient(f"{settings.SUPABASE_URL}/auth/v1/.well-known/jwks.json")
 
 
@@ -40,3 +43,18 @@ def require_role(*roles: str):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions.")
         return user
     return dependency
+
+
+def has_global_read_access(user: User) -> bool:
+    """Return whether a user may inspect records owned by any farmer."""
+    return user.role in GLOBAL_READ_ROLES
+
+
+async def require_write_access(user: User = Depends(get_current_user)) -> User:
+    """Reject read-only accounts before an endpoint can mutate domain data."""
+    if user.role not in WRITE_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This role has read-only access.",
+        )
+    return user

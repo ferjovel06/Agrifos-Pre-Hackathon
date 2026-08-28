@@ -3,7 +3,11 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import get_current_user
+from app.core.auth import (
+    get_current_user,
+    has_global_read_access,
+    require_write_access,
+)
 from app.db.session import get_db
 from app.models import Parcel, Reading, User
 from app.repositories import parcel as parcel_repo
@@ -27,7 +31,7 @@ async def _get_authorized_parcel(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Parcel not found."
         )
-    if user.role != "admin" and parcel.farm.user_id != user.id:
+    if not has_global_read_access(user) and parcel.farm.user_id != user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions."
         )
@@ -41,7 +45,7 @@ async def _get_authorized_parcel(
 )
 async def create_reading(
     payload: ReadingCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_write_access),
     db: AsyncSession = Depends(get_db),
 ):
     """Receives and stores a sensor reading (NPK, EC, pH, temperature, humidity)."""

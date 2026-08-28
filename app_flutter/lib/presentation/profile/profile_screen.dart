@@ -308,6 +308,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   String _roleLabel(String? role) => switch (role?.toLowerCase()) {
     'admin' => 'Administrador',
+    'auditor' => 'Auditor',
     'farmer' => 'Productor',
     _ => 'Usuario',
   };

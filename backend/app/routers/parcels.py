@@ -4,7 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
-from app.core.auth import get_current_user
+from app.core.auth import (
+    get_current_user,
+    has_global_read_access,
+    require_write_access,
+)
 from app.models import User, Parcel
 from app.schemas.parcel import ParcelCreate, ParcelUpdate, ParcelRead
 from app.repositories import parcel as parcel_repo
@@ -17,7 +21,10 @@ async def _get_owned_farm_or_403(farm_id: uuid.UUID, db: AsyncSession, current_u
     farm = await farm_repo.get_farm(db, farm_id)
     if not farm:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Farm not found.")
-    if farm.user_id != current_user.id and current_user.role != "admin":
+    if (
+        farm.user_id != current_user.id
+        and not has_global_read_access(current_user)
+    ):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions.")
     return farm
 
@@ -38,7 +45,7 @@ async def _get_owned_parcel(
 @router.post("", response_model=ParcelRead, status_code=status.HTTP_201_CREATED)
 async def create_parcel(
     payload: ParcelCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_write_access),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_owned_farm_or_403(payload.farm_id, db, current_user)
@@ -58,7 +65,7 @@ async def list_parcels(
         await _get_owned_farm_or_403(farm_id, db, current_user)
         return await parcel_repo.list_parcels_by_farm(db, farm_id, skip, limit)
 
-    if current_user.role == "admin":
+    if has_global_read_access(current_user):
         return await parcel_repo.list_all_parcels(db, skip, limit)
     return await parcel_repo.list_parcels_by_user(db, current_user.id, skip, limit)
 
@@ -76,7 +83,7 @@ async def get_parcel(
 async def update_parcel(
     parcel_id: uuid.UUID,
     payload: ParcelUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_write_access),
     db: AsyncSession = Depends(get_db),
 ):
     parcel = await _get_owned_parcel(parcel_id, db, current_user)
@@ -90,7 +97,7 @@ async def update_parcel(
 @router.delete("/{parcel_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_parcel(
     parcel_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_write_access),
     db: AsyncSession = Depends(get_db),
 ):
     parcel = await _get_owned_parcel(parcel_id, db, current_user)

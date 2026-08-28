@@ -4,7 +4,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
-from app.core.auth import get_current_user, require_role
+from app.core.auth import (
+    get_current_user,
+    has_global_read_access,
+    require_role,
+    require_write_access,
+)
 from app.models import User, PhenologicalStage
 from app.schemas.phenology import (
     StageTemplateCreate,
@@ -29,7 +34,10 @@ async def _get_owned_parcel_or_403(parcel_id: uuid.UUID, db: AsyncSession, curre
     if not parcel:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Parcel not found.")
     farm = await farm_repo.get_farm(db, parcel.farm_id)
-    if not farm or (farm.user_id != current_user.id and current_user.role != "admin"):
+    if not farm or (
+        farm.user_id != current_user.id
+        and not has_global_read_access(current_user)
+    ):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions.")
     return parcel
 
@@ -117,7 +125,7 @@ async def delete_template(
 @router.post("/instances", response_model=StageInstanceRead, status_code=status.HTTP_201_CREATED)
 async def create_instance(
     payload: StageInstanceCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_write_access),
     db: AsyncSession = Depends(get_db),
 ):
     parcel = await _get_owned_parcel_or_403(payload.parcel_id, db, current_user)
@@ -167,7 +175,7 @@ async def get_instance(
 async def update_instance(
     instance_id: uuid.UUID,
     payload: StageInstanceUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_write_access),
     db: AsyncSession = Depends(get_db),
 ):
     instance = await _get_owned_instance_or_403(instance_id, db, current_user)
@@ -180,7 +188,7 @@ async def update_instance(
 @router.delete("/instances/{instance_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_instance(
     instance_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_write_access),
     db: AsyncSession = Depends(get_db),
 ):
     instance = await _get_owned_instance_or_403(instance_id, db, current_user)
