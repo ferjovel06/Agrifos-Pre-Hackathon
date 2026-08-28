@@ -11,6 +11,15 @@ class Settings(BaseSettings):
 
     SUPABASE_URL: str
     WEATHER_API_BASE_URL: str = "https://api.open-meteo.com/v1"
+    ALLOWED_ORIGINS: str = ""
+
+    @property
+    def cors_origins(self) -> list[str]:
+        return [
+            origin.strip()
+            for origin in self.ALLOWED_ORIGINS.split(",")
+            if origin.strip()
+        ]
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
