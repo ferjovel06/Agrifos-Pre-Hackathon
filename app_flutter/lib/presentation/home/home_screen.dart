@@ -7,8 +7,10 @@ import '../farm/farm_provider.dart';
 import '../farm/farm_registration_screen.dart';
 import '../sensor/sensor_provider.dart';
 import 'latest_reading_provider.dart';
+import 'weather_provider.dart';
 import 'widgets/last_reading_card.dart';
 import 'widgets/no_farm_state.dart';
+import 'widgets/weather_conditions_card.dart';
 
 /// Home / dashboard tab shown in [MainShell].
 ///
@@ -36,6 +38,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final userId = context.read<AuthProvider>().user?.id;
     final farmProvider = context.read<FarmProvider>();
     final readingProvider = context.read<LatestReadingProvider>();
+    final weatherProvider = context.read<WeatherProvider>();
 
     if (mounted) setState(() => _isLoadingParcels = true);
 
@@ -48,6 +51,7 @@ class _HomeScreenState extends State<HomeScreen> {
       // Do not query (or retain data from) a parcel that does not belong to a
       // user who has no farm.
       readingProvider.clear();
+      weatherProvider.clear();
       return;
     }
 
@@ -55,8 +59,11 @@ class _HomeScreenState extends State<HomeScreen> {
     if (farmId == null) {
       _isLoadingParcels = false;
       readingProvider.clear();
+      weatherProvider.clear();
       return;
     }
+
+    final weatherFuture = weatherProvider.fetchForecast(farmId);
 
     try {
       final parcels = await _parcelRepository.getParcels(farmId);
@@ -68,6 +75,7 @@ class _HomeScreenState extends State<HomeScreen> {
       } else {
         await readingProvider.fetchLatest(_currentParcelId!);
       }
+      await weatherFuture;
     } catch (_) {
       if (!mounted) return;
       _currentParcelId = null;
@@ -120,6 +128,12 @@ class _HomeScreenState extends State<HomeScreen> {
           return _NoParcelState(onRegisterTap: _openParcelRegistration);
         }
         return _Dashboard(
+          onRetryWeather: () {
+            final farmId = farm.currentFarm?.id;
+            if (farmId != null) {
+              context.read<WeatherProvider>().fetchForecast(farmId);
+            }
+          },
           onRetryReading: () {
             final parcelId = _currentParcelId;
             if (parcelId == null) {
@@ -188,25 +202,45 @@ class _NoParcelState extends StatelessWidget {
 
 /// The existing dashboard content, shown once the user has a farm.
 class _Dashboard extends StatelessWidget {
-  const _Dashboard({required this.onRetryReading});
+  const _Dashboard({
+    required this.onRetryWeather,
+    required this.onRetryReading,
+  });
 
+  final VoidCallback onRetryWeather;
   final VoidCallback onRetryReading;
 
   @override
   Widget build(BuildContext context) {
     final latestReading = context.watch<LatestReadingProvider>();
+    final weather = context.watch<WeatherProvider>();
     final sensor = context.watch<SensorProvider>();
     final isSensorConnected = sensor.status == SensorStatus.connected;
 
     return SingleChildScrollView(
-      child: LastReadingCard(
-        reading: latestReading.reading,
-        isLoading: latestReading.status == LatestReadingStatus.loading,
-        isSensorConnected: isSensorConnected,
-        errorMessage: latestReading.status == LatestReadingStatus.error
-            ? latestReading.errorMessage
-            : null,
-        onRetry: onRetryReading,
+      child: Column(
+        children: [
+          WeatherConditionsCard(
+            forecast: weather.forecast,
+            isLoading:
+                weather.status == WeatherStatus.loading ||
+                weather.status == WeatherStatus.initial,
+            errorMessage: weather.status == WeatherStatus.error
+                ? weather.errorMessage
+                : null,
+            onRetry: onRetryWeather,
+          ),
+          const SizedBox(height: 14),
+          LastReadingCard(
+            reading: latestReading.reading,
+            isLoading: latestReading.status == LatestReadingStatus.loading,
+            isSensorConnected: isSensorConnected,
+            errorMessage: latestReading.status == LatestReadingStatus.error
+                ? latestReading.errorMessage
+                : null,
+            onRetry: onRetryReading,
+          ),
+        ],
       ),
     );
   }

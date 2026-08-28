@@ -54,7 +54,7 @@ class _Hero extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(24, 40, 24, 20),
       decoration: BoxDecoration(
         image: const DecorationImage(
-          image: AssetImage('assets/images/hero_field.jpg'),
+          image: AssetImage('assets/images/backgrounds/hero_field.jpg'),
           fit: BoxFit.cover,
         ),
         gradient: LinearGradient(
@@ -76,10 +76,15 @@ class _Hero extends StatelessWidget {
               color: Colors.black.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: SvgPicture.asset('assets/images/agrifos_isotype.svg'),
+            child: SvgPicture.asset(
+              'assets/images/branding/agrifos_isotype.svg',
+            ),
           ),
           const SizedBox(height: 10),
-          SvgPicture.asset('assets/images/agrifos_logotype.svg', height: 34),
+          SvgPicture.asset(
+            'assets/images/branding/agrifos_logotype.svg',
+            height: 34,
+          ),
           const SizedBox(height: 10),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,

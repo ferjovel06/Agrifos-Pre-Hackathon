@@ -31,12 +31,15 @@ flutter:
   uses-material-design: true
   assets:
     - .env
-    - assets/images/
+    - assets/images/backgrounds/
+    - assets/images/branding/
+    - assets/images/decorations/
+    - assets/images/icons/
 
 flutter_launcher_icons:
   android: true
   ios: false
-  image_path: "assets/images/app_icon.png"
+  image_path: "assets/images/icons/app_icon.png"
   # Adaptive icon configuration for Android 8.0+ (API level 26+)
   adaptive_icon_background: "#F9F0E9"
-  adaptive_icon_foreground: "assets/images/app_icon_foreground.png"
+  adaptive_icon_foreground: "assets/images/icons/app_icon_foreground.png"

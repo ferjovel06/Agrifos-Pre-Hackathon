@@ -156,14 +156,14 @@ class _Wordmark extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
           ),
           child: SvgPicture.asset(
-            'assets/images/agrifos_isotype.svg',
+            'assets/images/branding/agrifos_isotype.svg',
             height: 16,
             colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
           ),
         ),
         const SizedBox(width: 8),
         SvgPicture.asset(
-          'assets/images/agrifos_logotype.svg',
+          'assets/images/branding/agrifos_logotype.svg',
           height: 18,
           colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
         ),
