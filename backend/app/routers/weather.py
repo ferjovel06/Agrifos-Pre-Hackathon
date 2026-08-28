@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import get_current_user, has_global_read_access
 from app.db.session import get_db
 from app.integrations.weather_provider import (
+    WeatherProviderRateLimited,
     WeatherProviderTimeout,
     WeatherProviderUnavailable,
 )
@@ -57,6 +58,16 @@ async def get_farm_forecast(
     farm = await _get_owned_farm(farm_id, db, current_user)
     try:
         return await service.forecast(farm, days)
+    except WeatherProviderRateLimited as error:
+        logger.warning(
+            "Weather provider rate limit reached for farm %s: %s",
+            farm_id,
+            error,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="El servicio climático alcanzó su límite temporal. Intenta en unos minutos.",
+        ) from error
     except WeatherProviderTimeout as error:
         logger.warning(
             "Weather provider timed out for farm %s: %s", farm_id, error

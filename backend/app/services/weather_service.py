@@ -1,7 +1,9 @@
+from dataclasses import dataclass
 from datetime import date, datetime
-from typing import Any
+from time import monotonic
+from typing import Any, Callable
 
-from app.integrations.weather_provider import OpenMeteoProvider
+from app.integrations.weather_provider import OpenMeteoProvider, WeatherProviderError
 from app.models import Farm
 from app.schemas.weather import (
     CurrentWeatherRead,
@@ -14,17 +16,78 @@ class InvalidWeatherDataError(RuntimeError):
     pass
 
 
+@dataclass
+class _CachedForecast:
+    forecast: WeatherForecastRead
+    fresh_until: float
+    stale_until: float
+
+
+class WeatherForecastCache:
+    def __init__(
+        self,
+        fresh_seconds: float = 30 * 60,
+        stale_seconds: float = 6 * 60 * 60,
+        clock: Callable[[], float] = monotonic,
+    ):
+        self._fresh_seconds = fresh_seconds
+        self._stale_seconds = stale_seconds
+        self._clock = clock
+        self._entries: dict[tuple[str, float, float, int], _CachedForecast] = {}
+
+    def get(
+        self,
+        key: tuple[str, float, float, int],
+        *,
+        allow_stale: bool = False,
+    ) -> WeatherForecastRead | None:
+        entry = self._entries.get(key)
+        if entry is None:
+            return None
+        deadline = entry.stale_until if allow_stale else entry.fresh_until
+        if self._clock() <= deadline:
+            return entry.forecast
+        if self._clock() > entry.stale_until:
+            self._entries.pop(key, None)
+        return None
+
+    def put(
+        self,
+        key: tuple[str, float, float, int],
+        forecast: WeatherForecastRead,
+    ) -> None:
+        now = self._clock()
+        self._entries[key] = _CachedForecast(
+            forecast=forecast,
+            fresh_until=now + self._fresh_seconds,
+            stale_until=now + self._stale_seconds,
+        )
+
+
+_shared_forecast_cache = WeatherForecastCache()
+
+
 class WeatherService:
-    def __init__(self, provider: OpenMeteoProvider | None = None):
+    def __init__(
+        self,
+        provider: OpenMeteoProvider | None = None,
+        cache: WeatherForecastCache | None = None,
+    ):
         self._provider = provider or OpenMeteoProvider()
+        self._cache = cache or _shared_forecast_cache
 
     async def forecast(self, farm: Farm, days: int) -> WeatherForecastRead:
-        payload = await self._provider.fetch_forecast(
-            latitude=farm.latitude,
-            longitude=farm.longitude,
-            days=days,
-        )
+        cache_key = (str(farm.id), farm.latitude, farm.longitude, days)
+        cached = self._cache.get(cache_key)
+        if cached is not None:
+            return cached
+
         try:
+            payload = await self._provider.fetch_forecast(
+                latitude=farm.latitude,
+                longitude=farm.longitude,
+                days=days,
+            )
             current_data = payload["current"]
             daily_data = payload["daily"]
             current = CurrentWeatherRead(
@@ -37,7 +100,7 @@ class WeatherService:
                 wind_speed_kmh=current_data["wind_speed_10m"],
             )
             daily = self._daily_forecast(daily_data, days)
-            return WeatherForecastRead(
+            forecast = WeatherForecastRead(
                 farm_id=farm.id,
                 farm_name=farm.name,
                 provider="Open-Meteo",
@@ -47,10 +110,21 @@ class WeatherService:
                 current=current,
                 daily=daily,
             )
+        except WeatherProviderError:
+            stale = self._cache.get(cache_key, allow_stale=True)
+            if stale is not None:
+                return stale
+            raise
         except (KeyError, TypeError, ValueError) as error:
+            stale = self._cache.get(cache_key, allow_stale=True)
+            if stale is not None:
+                return stale
             raise InvalidWeatherDataError(
                 "The weather provider returned incomplete forecast data."
             ) from error
+
+        self._cache.put(cache_key, forecast)
+        return forecast
 
     def _daily_forecast(
         self,

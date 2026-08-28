@@ -8,10 +8,16 @@ from fastapi import HTTPException
 
 from app.integrations.weather_provider import (
     OpenMeteoProvider,
+    WeatherProviderRateLimited,
     WeatherProviderTimeout,
+    WeatherProviderUnavailable,
 )
 from app.routers import weather as router
-from app.services.weather_service import InvalidWeatherDataError, WeatherService
+from app.services.weather_service import (
+    InvalidWeatherDataError,
+    WeatherForecastCache,
+    WeatherService,
+)
 
 
 def provider_payload(days: int = 2):
@@ -93,6 +99,23 @@ class OpenMeteoProviderTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(attempts, 2)
         self.assertEqual(result["timezone"], "America/Managua")
 
+    async def test_does_not_retry_rate_limit_response(self):
+        attempts = 0
+
+        async def handler(request: httpx.Request):
+            nonlocal attempts
+            attempts += 1
+            return httpx.Response(429, request=request)
+
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(handler)
+        ) as client:
+            provider = OpenMeteoProvider(client=client)
+            with self.assertRaises(WeatherProviderRateLimited):
+                await provider.fetch_forecast(12.1, -86.2, 7)
+
+        self.assertEqual(attempts, 1)
+
 
 class WeatherServiceTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
@@ -124,7 +147,46 @@ class WeatherServiceTests(unittest.IsolatedAsyncioTestCase):
         provider = SimpleNamespace(fetch_forecast=AsyncMock(return_value=payload))
 
         with self.assertRaises(InvalidWeatherDataError):
-            await WeatherService(provider=provider).forecast(self.farm, 2)
+            await WeatherService(
+                provider=provider,
+                cache=WeatherForecastCache(),
+            ).forecast(self.farm, 2)
+
+    async def test_reuses_a_fresh_cached_forecast(self):
+        provider = SimpleNamespace(
+            fetch_forecast=AsyncMock(return_value=provider_payload())
+        )
+        service = WeatherService(
+            provider=provider,
+            cache=WeatherForecastCache(),
+        )
+
+        first = await service.forecast(self.farm, 2)
+        second = await service.forecast(self.farm, 2)
+
+        self.assertIs(second, first)
+        provider.fetch_forecast.assert_awaited_once()
+
+    async def test_returns_stale_cache_during_provider_failure(self):
+        now = 0.0
+        provider = SimpleNamespace(
+            fetch_forecast=AsyncMock(return_value=provider_payload())
+        )
+        cache = WeatherForecastCache(
+            fresh_seconds=10,
+            stale_seconds=60,
+            clock=lambda: now,
+        )
+        service = WeatherService(provider=provider, cache=cache)
+        first = await service.forecast(self.farm, 2)
+        now = 20.0
+        provider.fetch_forecast.side_effect = WeatherProviderUnavailable(
+            "rate limited"
+        )
+
+        second = await service.forecast(self.farm, 2)
+
+        self.assertIs(second, first)
 
 
 class WeatherRouterTests(unittest.IsolatedAsyncioTestCase):

@@ -131,7 +131,10 @@ class _HomeScreenState extends State<HomeScreen> {
           onRetryWeather: () {
             final farmId = farm.currentFarm?.id;
             if (farmId != null) {
-              context.read<WeatherProvider>().fetchForecast(farmId);
+              context.read<WeatherProvider>().fetchForecast(
+                farmId,
+                force: true,
+              );
             }
           },
           onRetryReading: () {

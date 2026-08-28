@@ -10,6 +10,7 @@ from app.core.auth import (
 )
 from app.db.session import get_db
 from app.integrations.weather_provider import (
+    WeatherProviderRateLimited,
     WeatherProviderTimeout,
     WeatherProviderUnavailable,
 )
@@ -64,6 +65,11 @@ async def evaluate_farm_alerts(
     farm = await _get_owned_farm(farm_id, db, current_user)
     try:
         forecast = await weather_service.forecast(farm, days)
+    except WeatherProviderRateLimited as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="El servicio climático alcanzó su límite temporal. Intenta en unos minutos.",
+        ) from error
     except WeatherProviderTimeout as error:
         raise HTTPException(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
