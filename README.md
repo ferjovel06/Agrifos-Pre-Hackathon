@@ -22,7 +22,7 @@ Sistema de asistencia agrícola compuesto por una plataforma digital interactiva
 
 ## Arquitectura
 
-![Arquitectura](docs/arquitectura.png)
+![Arquitectura](docs/architecture_diagram.png)
 
 **Flujo de datos**
 1. **Sensor NPK genérico (OTG):** dispositivo comercial de sonda multiparamétrica (NPK, CE, pH, temperatura, humedad) que se conecta al teléfono/tablet mediante cable OTG (USB Serial/CDC).
