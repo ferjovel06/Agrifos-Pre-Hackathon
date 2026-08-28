@@ -3,7 +3,11 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import get_current_user
+from app.core.auth import (
+    get_current_user,
+    has_global_read_access,
+    require_write_access,
+)
 from app.db.session import get_db
 from app.integrations.weather_provider import (
     WeatherProviderTimeout,
@@ -35,7 +39,10 @@ async def _get_owned_farm(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Farm not found.",
         )
-    if farm.user_id != current_user.id and current_user.role != "admin":
+    if (
+        farm.user_id != current_user.id
+        and not has_global_read_access(current_user)
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions.",
@@ -50,7 +57,7 @@ async def _get_owned_farm(
 async def evaluate_farm_alerts(
     farm_id: uuid.UUID,
     days: int = Query(default=7, ge=2, le=16),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_write_access),
     db: AsyncSession = Depends(get_db),
     weather_service: WeatherService = Depends(get_weather_service),
 ):

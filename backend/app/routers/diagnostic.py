@@ -3,7 +3,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import get_current_user
+from app.core.auth import get_current_user, has_global_read_access
 from app.db.session import get_db
 from app.models import User
 from app.repositories import parcel as parcel_repo
@@ -38,7 +38,10 @@ async def diagnose_reading(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Parcel not found.",
         )
-    if current_user.role != "admin" and parcel.farm.user_id != current_user.id:
+    if (
+        not has_global_read_access(current_user)
+        and parcel.farm.user_id != current_user.id
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions.",

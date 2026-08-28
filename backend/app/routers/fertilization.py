@@ -3,7 +3,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import get_current_user
+from app.core.auth import has_global_read_access, require_write_access
 from app.db.session import get_db
 from app.models import User
 from app.repositories import parcel as parcel_repo
@@ -34,7 +34,7 @@ def _age_in_months(planting_date: date, today: date) -> int:
 @router.post("/recommendations", response_model=FertilizationRecommendationRead)
 async def create_recommendation(
     payload: FertilizationRecommendationRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_write_access),
     db: AsyncSession = Depends(get_db),
 ):
     parcel = await parcel_repo.get_parcel(db, payload.parcel_id)
@@ -43,7 +43,10 @@ async def create_recommendation(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Parcel not found.",
         )
-    if current_user.role != "admin" and parcel.farm.user_id != current_user.id:
+    if (
+        not has_global_read_access(current_user)
+        and parcel.farm.user_id != current_user.id
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions.",
