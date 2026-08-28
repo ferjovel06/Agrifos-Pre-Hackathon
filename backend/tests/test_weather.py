@@ -60,13 +60,38 @@ class OpenMeteoProviderTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["timezone"], "America/Managua")
 
     async def test_translates_provider_timeout(self):
+        attempts = 0
+
         async def handler(request: httpx.Request):
+            nonlocal attempts
+            attempts += 1
             raise httpx.ReadTimeout("timeout", request=request)
 
         async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
             provider = OpenMeteoProvider(client=client)
             with self.assertRaises(WeatherProviderTimeout):
                 await provider.fetch_forecast(12.1, -86.2, 7)
+
+        self.assertEqual(attempts, 2)
+
+    async def test_retries_a_transient_provider_failure(self):
+        attempts = 0
+
+        async def handler(request: httpx.Request):
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                raise httpx.ConnectError("temporary failure", request=request)
+            return httpx.Response(200, json=provider_payload())
+
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(handler)
+        ) as client:
+            provider = OpenMeteoProvider(client=client)
+            result = await provider.fetch_forecast(12.1, -86.2, 2)
+
+        self.assertEqual(attempts, 2)
+        self.assertEqual(result["timezone"], "America/Managua")
 
 
 class WeatherServiceTests(unittest.IsolatedAsyncioTestCase):

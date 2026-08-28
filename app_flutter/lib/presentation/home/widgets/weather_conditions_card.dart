@@ -59,7 +59,7 @@ class WeatherConditionsCard extends StatelessWidget {
       );
     }
     if (errorMessage != null || forecast == null) {
-      return _WeatherUnavailable(onRetry: onRetry);
+      return _WeatherUnavailable(message: errorMessage, onRetry: onRetry);
     }
 
     final data = forecast!;
@@ -204,8 +204,9 @@ class _MetricLine extends StatelessWidget {
 }
 
 class _WeatherUnavailable extends StatelessWidget {
-  const _WeatherUnavailable({this.onRetry});
+  const _WeatherUnavailable({this.message, this.onRetry});
 
+  final String? message;
   final VoidCallback? onRetry;
 
   @override
@@ -224,10 +225,12 @@ class _WeatherUnavailable extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 2),
-        const Text(
-          'No pudimos actualizar las condiciones actuales.',
+        Text(
+          message ?? 'No pudimos actualizar las condiciones actuales.',
           textAlign: TextAlign.center,
-          style: TextStyle(color: Color(0xFFD7D2CA), fontSize: 11),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(color: Color(0xFFD7D2CA), fontSize: 11),
         ),
         if (onRetry != null)
           TextButton(
