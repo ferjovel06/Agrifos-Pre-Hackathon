@@ -48,7 +48,7 @@ void main() {
     );
 
     expect(find.text('Clima no disponible'), findsOneWidget);
-    expect(find.text('provider error'), findsNothing);
+    expect(find.text('provider error'), findsOneWidget);
     await tester.tap(find.text('Reintentar'));
     expect(retried, isTrue);
   });

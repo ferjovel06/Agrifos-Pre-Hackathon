@@ -61,31 +61,7 @@ class OpenMeteoProvider:
             "wind_speed_unit": "kmh",
             "precipitation_unit": "mm",
         }
-        try:
-            if self._client is not None:
-                response = await self._client.get(
-                    f"{self._base_url}/forecast",
-                    params=params,
-                )
-            else:
-                async with httpx.AsyncClient(timeout=8.0) as client:
-                    response = await client.get(
-                        f"{self._base_url}/forecast",
-                        params=params,
-                    )
-            response.raise_for_status()
-        except httpx.TimeoutException as error:
-            raise WeatherProviderTimeout(
-                "The weather service took too long to respond."
-            ) from error
-        except httpx.HTTPStatusError as error:
-            raise WeatherProviderUnavailable(
-                f"The weather service returned HTTP {error.response.status_code}."
-            ) from error
-        except httpx.RequestError as error:
-            raise WeatherProviderUnavailable(
-                "The weather service could not be reached."
-            ) from error
+        response = await self._request_with_retry(params)
 
         try:
             payload = response.json()
@@ -98,3 +74,52 @@ class OpenMeteoProvider:
                 "The weather service returned an invalid response."
             )
         return payload
+
+    async def _request_with_retry(self, params: dict[str, Any]) -> httpx.Response:
+        """Retry one transient provider failure before giving up.
+
+        Render free instances and the upstream weather service can both be
+        briefly slow after an idle period. A single retry keeps that transient
+        delay from turning into an unavailable dashboard card.
+        """
+        last_error: httpx.RequestError | None = None
+        for attempt in range(2):
+            try:
+                if self._client is not None:
+                    response = await self._client.get(
+                        f"{self._base_url}/forecast",
+                        params=params,
+                    )
+                else:
+                    timeout = httpx.Timeout(15.0, connect=5.0)
+                    async with httpx.AsyncClient(timeout=timeout) as client:
+                        response = await client.get(
+                            f"{self._base_url}/forecast",
+                            params=params,
+                        )
+                response.raise_for_status()
+                return response
+            except httpx.TimeoutException as error:
+                last_error = error
+                if attempt == 0:
+                    continue
+                raise WeatherProviderTimeout(
+                    "The weather service took too long to respond."
+                ) from error
+            except httpx.HTTPStatusError as error:
+                if error.response.status_code >= 500 and attempt == 0:
+                    continue
+                raise WeatherProviderUnavailable(
+                    f"The weather service returned HTTP {error.response.status_code}."
+                ) from error
+            except httpx.RequestError as error:
+                last_error = error
+                if attempt == 0:
+                    continue
+                raise WeatherProviderUnavailable(
+                    "The weather service could not be reached."
+                ) from error
+
+        raise WeatherProviderUnavailable(
+            "The weather service could not be reached."
+        ) from last_error

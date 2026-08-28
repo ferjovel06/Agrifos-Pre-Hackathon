@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -16,6 +17,7 @@ from app.services.weather_service import InvalidWeatherDataError, WeatherService
 
 
 router = APIRouter(prefix="/weather", tags=["weather"])
+logger = logging.getLogger(__name__)
 
 
 def get_weather_service() -> WeatherService:
@@ -56,11 +58,17 @@ async def get_farm_forecast(
     try:
         return await service.forecast(farm, days)
     except WeatherProviderTimeout as error:
+        logger.warning(
+            "Weather provider timed out for farm %s: %s", farm_id, error
+        )
         raise HTTPException(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
             detail="El servicio meteorológico tardó demasiado en responder.",
         ) from error
     except (WeatherProviderUnavailable, InvalidWeatherDataError) as error:
+        logger.warning(
+            "Weather forecast failed for farm %s: %s", farm_id, error
+        )
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="El pronóstico no está disponible temporalmente.",
