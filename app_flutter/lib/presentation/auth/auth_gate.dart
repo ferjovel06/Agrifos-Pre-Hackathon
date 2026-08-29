@@ -3,6 +3,10 @@ import 'package:provider/provider.dart';
 
 import 'auth_provider.dart';
 import 'auth_screen.dart';
+import 'email_confirmation_pending_screen.dart';
+import 'mfa_challenge_screen.dart';
+import 'mfa_enrollment_offer_screen.dart';
+import 'password_recovery_screen.dart';
 import '../splash/splash_screen.dart';
 import '../navigation/main_shell.dart';
 
@@ -29,8 +33,14 @@ class _AuthGateState extends State<AuthGate> {
     if (_showSplash) return const SplashScreen();
 
     final auth = context.watch<AuthProvider>();
-    return auth.status == AuthStatus.authenticated
-        ? const MainShell()
-        : const AuthScreen();
+    return switch (auth.status) {
+      AuthStatus.authenticated => const MainShell(),
+      AuthStatus.emailConfirmationPending =>
+        const EmailConfirmationPendingScreen(),
+      AuthStatus.passwordRecovery => const PasswordRecoveryScreen(),
+      AuthStatus.mfaEnrollmentOffered => const MfaEnrollmentOfferScreen(),
+      AuthStatus.mfaRequired => const MfaChallengeScreen(),
+      _ => const AuthScreen(),
+    };
   }
 }
