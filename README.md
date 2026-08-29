@@ -90,8 +90,8 @@ Los detalles completos del motor agronómico se distribuyen en tres documentos d
 | Documento | Contenido |
 |---|---|
 | [`agrifos_engine_documentation.md`](docs/agrifos_engine_documentation.md) | Ecuaciones matemáticas del motor de balance de masa N-P-K, calibración de sensores, cascada de fertilizantes químicos y modelo de riesgo climático |
-| [`informe_fenologia_motor_fertilizacion_cafe.md`](docs/informe_fenologia_motor_fertilizacion_cafe.md) | Modelo de etapa fenológica, calendario para Nicaragua, catálogo extendido de fertilizantes y referencias |
-| [`parametros_laboratorio_cafe.md`](docs/parametros_laboratorio_cafe.md) | Rangos de referencia para parámetros de suelo y guía de implementación en Agrifos |
+| [`informe_fenologia_motor_fertilizacion_cafe.md`](docs/informe_fenologia_motor_fertilizacion_cafe.md) | Documento completo sobre fenología, motor de fertilización, ejemplos, validación, apéndices y referencias |
+| [`parametros_laboratorio_cafe.md`](docs/parametros_laboratorio_cafe.md) | Documento completo de rangos de laboratorio, criterios de interpretación, implementación y referencias |
 | [`guia_evaluador.md`](docs/guia_evaluador.md) | Instrucciones para activar el backend en Render, probar endpoints protegidos e instalar el APK |
 
 ## Motor de Cálculo
