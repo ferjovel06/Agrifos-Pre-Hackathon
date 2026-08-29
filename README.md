@@ -12,7 +12,8 @@ Sistema de asistencia agrícola compuesto por una plataforma digital interactiva
   - [2. Inteligencia Climática y Alertas Predictivas](#2-inteligencia-climática-y-alertas-predictivas)
   - [3. Calendario Fenológico Automatizado](#3-calendario-fenológico-automatizado)
   - [4. Gestor de Operaciones y Finanzas](#4-gestor-de-operaciones-y-finanzas-de-la-finca)
-- [Motor de Cálculo: Fundamentos Matemáticos](#motor-de-cálculo-fundamentos-matemáticos)
+- [Documentación Técnica de Referencia](#documentación-técnica-de-referencia)
+- [Motor de Cálculo](#motor-de-cálculo)
 - [Dependencias](#dependencias)
 - [Variables de entorno](#variables-de-entorno)
 - [Estructura modular](#estructura-modular)
@@ -24,18 +25,17 @@ Sistema de asistencia agrícola compuesto por una plataforma digital interactiva
 
 ![Arquitectura](docs/architecture_diagram.png)
 
+> El PNG muestra la arquitectura objetivo del producto.
+
 **Flujo de datos**
 1. **Sensor NPK genérico (OTG):** dispositivo comercial de sonda multiparamétrica (NPK, CE, pH, temperatura, humedad) que se conecta al teléfono/tablet mediante cable OTG (USB Serial/CDC).
-2. **App (Flutter):** detecta el sensor conectado por OTG y recibe el stream de datos, o bien permite al agricultor introducir manualmente los valores de un análisis de laboratorio. Además permite registrar finca/parcela/cultivo, registrar egresos/ingresos, y muestra el tablero en tiempo real, el calendario fenológico, las alertas climáticas y el dashboard financiero, enviando toda la información al backend para su procesamiento.
-3. **Backend (FastAPI):** expone la API REST, persiste la información en PostgreSQL, ejecuta el motor de diagnóstico (comparación lectura/análisis vs. requerimientos del cultivo por etapa fenológica), calcula el plan de fertilización, orquesta el motor climático (consumo de un proveedor externo de pronóstico), proyecta el calendario fenológico y calcula la rentabilidad de la finca.
+2. **App (Flutter):** detecta el sensor conectado por OTG, permite capturar análisis de laboratorio y consume la API REST. Supabase Auth gestiona registro, confirmación de correo, sesiones, recuperación de contraseña y MFA TOTP. Las pestañas de planificación y finanzas conservan por ahora una interfaz de demostración.
+3. **Backend (FastAPI):** valida los JWT de Supabase, aplica permisos por rol, persiste la información en PostgreSQL y expone los servicios de diagnóstico, fertilización, fenología y clima. Los modelos financieros existen, pero su router todavía no está publicado por la API.
 4. **Servicio externo de clima:** proveedor meteorológico de terceros consultado por el backend para generar alertas predictivas (lluvias, canículas, olas de calor).
 5. **Base de datos (PostgreSQL):** modelo relacional de 19 entidades — ver [Modelo de datos](#modelo-de-datos) para el detalle completo.
 
 ## Modelo de datos
-
-Las tablas y columnas se nombran en **inglés** por convención de código (consistente con `models/`, `schemas/` y los endpoints REST). La app Flutter, en cambio, se muestra 100% en **español**: la traducción vive solo en la capa de presentación (`intl`), nunca en el esquema de la base de datos.
-
-El diagrama ER completo (19 entidades, 25 relaciones) está versionado en [`docs/agrifos_er_diagram.mmd`](docs/agrifos_er_diagram.mmd) (formato [Mermaid](https://mermaid.live), renderiza nativamente en GitHub/GitLab).
+El diagrama ER completo (19 entidades, 25 relaciones) está versionado en [`docs/agrifos_er_diagram.mmd`](docs/agrifos_er_diagram.mmd) (formato [Mermaid](https://mermaid.live)).
 
 **Grupos de entidades:**
 
@@ -83,62 +83,27 @@ Módulo administrativo integral para manejar la parcela como una empresa, con co
 - **Registro de ingresos y producción:** documentación del rendimiento de la cosecha (quintales o toneladas) y el precio de venta en el mercado al momento de la transacción.
 - **Dashboard de rentabilidad (utilidades):** cruza ingresos con gastos y muestra visualmente el costo de producción por manzana, el margen de ganancia neto y el punto de equilibrio, para que el agricultor sepa exactamente cuánto le quedó al final de la cosecha.
 
-## Motor de Cálculo: Fundamentos Matemáticos
+## Documentación Técnica de Referencia
 
-Esta sección resume la lógica matemática que implementa `fertilizacion_service.py`, documentada en detalle en `docs/agrifos_engine_documentation.md`. El motor está pensado inicialmente para **café** (Caturra, Borbón, Catuaí) y **maíz** (Híbrido, Mejorada, Criollo), y sigue tres pasos secuenciales por cada macronutriente $i \in \{N, P, K\}$.
+Los detalles completos del motor agronómico se distribuyen en tres documentos de `docs/`:
 
-### Paso A — Demanda nutricional del cultivo ($D_c$)
+| Documento | Contenido |
+|---|---|
+| [`agrifos_engine_documentation.md`](docs/agrifos_engine_documentation.md) | Ecuaciones matemáticas del motor de balance de masa N-P-K, calibración de sensores, cascada de fertilizantes químicos y modelo de riesgo climático |
+| [`informe_fenologia_motor_fertilizacion_cafe.md`](docs/informe_fenologia_motor_fertilizacion_cafe.md) | Modelo de etapa fenológica, calendario para Nicaragua, catálogo extendido de fertilizantes y referencias |
+| [`parametros_laboratorio_cafe.md`](docs/parametros_laboratorio_cafe.md) | Rangos de referencia para parámetros de suelo y guía de implementación en Agrifos |
+| [`guia_evaluador.md`](docs/guia_evaluador.md) | Instrucciones para activar el backend en Render, probar endpoints protegidos e instalar el APK |
 
-$$D_{c(i)} = R_{obj} \times I_{e(i)} \times f_{v(i)} \times f_{e(i)}$$
+## Motor de Cálculo
 
-- $R_{obj}$: rendimiento objetivo (ton/ha o qq/ha).
-- $I_{e(i)}$: índice de extracción base del nutriente (kg por unidad de rendimiento), tomado de la tabla de referencia por cultivo.
-- $f_{v(i)}$: factor de corrección por variedad (ej. Caturra 1.05, Híbrido 1.20, Criollo 0.80).
-- $f_{e(i)}$: factor de distribución según la fase fenológica en curso, sincronizado con el [Calendario Fenológico](#3-calendario-fenológico-automatizado).
+El motor agronómico combina los datos del suelo con el cultivo, la variedad, la etapa fenológica, la densidad de siembra y el rendimiento objetivo para estimar el balance nutricional de N, P y K.
 
-### Paso B — Aporte nutricional del suelo ($S_a$)
+- **Entradas:** lecturas del sensor 7-en-1 o resultados de laboratorio, datos de la parcela y contexto fenológico.
+- **Proceso:** normalización de unidades, evaluación del aporte del suelo, estimación del déficit y ajuste por eficiencia agronómica.
+- **Salidas:** diagnóstico por parámetro y recomendaciones de fertilización expresadas en unidades aplicables en campo.
+- **Alcance inicial:** café y maíz, con advertencias sobre calibración, métodos de laboratorio y límites de interpretación.
 
-El motor soporta dos rutas de entrada equivalentes en unidades de salida (kg/ha):
-
-- **Vía B (laboratorio):** convierte concentraciones de ppm o meq/100g a kg/ha usando la masa de la capa arable ($M_s = A \times P_r \times D_a \times 1000$) y, para P y K, los factores de conversión a óxidos ($P_2O_5 = 2.291$, $K_2O = 1.205$).
-- **Vía A (sensor 7 en 1):** aplica una curva de calibración $C_{ajustada(i)} = g(Lectura_{sensor(i)}, \theta, T, pH)$ que corrige la lectura cruda por humedad volumétrica, temperatura y pH (ej. normalización de CE a 25 °C) antes de convertirla con la misma fórmula de laboratorio.
-
-### Paso C — Déficit real y eficiencia ($D_f$)
-
-$$D_{f(i)} = \frac{D_{c(i)} - S_{a(i)}}{E_{f(i)}}$$
-
-Los factores de eficiencia ($E_f$) por defecto del motor son configurables por nutriente y suelo:
-
-| Nutriente | $E_f$ típico | Principal causa de pérdida |
-|---|---|---|
-| Nitrógeno (N) | 0.40 – 0.60 | Volatilización, lixiviación de nitratos, desnitrificación |
-| Fósforo (P) | 0.15 – 0.30 | Fijación en suelos volcánicos (Andisoles) o calcáreos |
-| Potasio (K) | 0.60 – 0.70 | Lixiviación en suelos arenosos |
-
-### Recomendación de fertilización química
-
-El motor calcula primero las fuentes binarias y ajusta con las simples:
-
-1. **DAP** (18% N, 46% $P_2O_5$): $DAP_{kg/ha} = D_{f(P)} / 0.46$
-2. **Urea** (46% N), descontando el N ya aportado por el DAP: $Urea_{kg/ha} = \max(0,\ D_{f(N)} - DAP_{kg/ha} \times 0.18) / 0.46$
-3. **KCl** (60% $K_2O$): $KCl_{kg/ha} = D_{f(K)} / 0.60$
-4. **Conversión a onzas por planta**, usando la densidad de siembra $\rho_p$ (plantas/ha), para que la dosis sea aplicable en campo.
-
-### Recomendación de fertilización orgánica
-
-Sustituye $D_f$ por la matriz de composición del abono orgánico disponible ($C_N, C_P, C_K$) ponderada por su tasa de mineralización anual ($M_t$), y toma la dosis limitante:
-
-$$Dosis_{org} = \max \left( \frac{D_{f(N)}}{C_N \cdot M_{t(N)}},\ \frac{D_{f(P)}}{C_P \cdot M_{t(P)}},\ \frac{D_{f(K)}}{C_K \cdot M_{t(K)}} \right)$$
-
-Insumos de referencia: Bocashi ($M_t \approx 0.60$), Humus de lombriz ($M_t \approx 0.70$), Roca fosfórica ($M_t \approx 0.10$–$0.20$, liberación lenta y dependiente de pH ácido). Si el compuesto orgánico no cubre P o K sin sobreaplicar N, el motor completa el déficit con una fuente mineral puntual (ej. sulfato de potasio natural).
-
-### Modelo de riesgo climático que puede bloquear una aplicación
-
-El [motor climático](#2-inteligencia-climática-y-alertas-predictivas) calcula un riesgo $R(t)$ a partir de la precipitación pronosticada $P_r(t)$ en mm:
-
-$$R(t) = \begin{cases} 0, & P_r(t) \le 10 \\ \dfrac{P_r(t) - 10}{40}, & 10 < P_r(t) \le 50 \\ 1, & P_r(t) > 50 \end{cases}$$
-
-Si $R(t) > 0.6$ dentro de las 48 horas posteriores a una aplicación planeada de fertilizante de alta solubilidad (ej. urea sin incorporar), el motor **bloquea la recomendación** y reporta una pérdida monetaria estimada de $R(t) \times 0.50$ (hasta 50% del costo del insumo aplicado).
+Las ecuaciones, factores, supuestos, ejemplos y referencias se documentan en [`docs/agrifos_engine_documentation.md`](docs/agrifos_engine_documentation.md). El detalle fenológico y los rangos de laboratorio están en [`docs/informe_fenologia_motor_fertilizacion_cafe.md`](docs/informe_fenologia_motor_fertilizacion_cafe.md) y [`docs/parametros_laboratorio_cafe.md`](docs/parametros_laboratorio_cafe.md).
 
 ## Dependencias
 
@@ -146,18 +111,14 @@ Si $R(t) > 0.6$ dentro de las 48 horas posteriores a una aplicación planeada de
 
 | Paquete | Uso |
 |---|---|
-| `fastapi` | Framework principal de la API REST |
-| `uvicorn` | Servidor ASGI |
+| `fastapi[standard]` | API REST y servidor ASGI |
 | `sqlalchemy` | ORM para PostgreSQL |
 | `asyncpg` | Driver asíncrono de PostgreSQL |
 | `alembic` | Migraciones de base de datos |
 | `pydantic` / `pydantic-settings` | Validación de datos y configuración |
 | `pyjwt[crypto]` | Validación de JWT emitidos por Supabase Auth (JWKS/ES256) |
-| `python-dotenv` | Carga de variables de entorno en desarrollo |
 | `httpx` | Cliente HTTP para consumir el proveedor externo de clima |
-| `apscheduler` | Tareas programadas (evaluación diaria de alertas climáticas y fenológicas) |
-| `pandas` / `numpy` | Cálculos del motor de fertilización y del dashboard financiero |
-| `pytest` / `httpx` | Testing de la API |
+| `psycopg2-binary` | Driver PostgreSQL usado por Alembic |
 
 ### App (Flutter)
 
@@ -165,16 +126,13 @@ Si $R(t) > 0.6$ dentro de las 48 horas posteriores a una aplicación planeada de
 |---|---|
 | `supabase_flutter` | Cliente de Supabase Auth (login, registro, recuperación de contraseña, persistencia de sesión) |
 | `flutter_dotenv` | Carga de `SUPABASE_URL` / `SUPABASE_PUBLISHABLE_KEY` desde `.env` |
-| `dio` | Cliente HTTP para consumir la API de FastAPI |
+| `http` | Cliente HTTP para consumir la API de FastAPI |
 | `provider` | Gestión de estado |
 | `flutter_svg` | Renderizado del isotipo/logotipo de la marca |
 | `flutter_native_splash` (dev) | Generación del splash nativo de Android/iOS a partir de `assets/images/` |
-| `usb_serial` | Comunicación con el sensor NPK genérico vía cable OTG (USB Serial) |
-| `fl_chart` | Gráficos del tablero en tiempo real y del dashboard financiero |
-| `table_calendar` | Visualización del calendario fenológico |
-| `hive` / `sqflite` | Persistencia local / caché offline |
-| `intl` | Formateo de fechas, monedas y unidades |
-| `flutter_local_notifications` | Notificaciones push de alertas climáticas y fenológicas |
+| `flutter_serial_communication` | Comunicación con el sensor NPK vía OTG/Serial |
+| `geolocator` / `geocoding` | Ubicación y geocodificación de fincas |
+| `google_fonts` | Tipografías de la interfaz |
 
 ## Variables de entorno
 
@@ -197,24 +155,10 @@ SUPABASE_URL=https://[project-ref].supabase.co
 # CORS
 ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080
 
-# Diagnostic and fertilization
-DEFAULT_UNIT_NPK=mg/kg
-DEFAULT_UNIT_EC=dS/m
-
-# Weather alerts
-WEATHER_PROVIDER=openweather        # proveedor meteorológico externo
-WEATHER_API_KEY=weather_api_key_ejemplo
-WEATHER_ALERT_RAIN_WINDOW_HOURS=48
-WEATHER_ALERT_HEATWAVE_THRESHOLD_C=35
-
-# Phenology calendar
-PHENOLOGY_NOTIFICATION_LEAD_DAYS=3
-
-# Financial dashboard
-DEFAULT_CURRENCY=NIO
-
-# Logging
-LOG_LEVEL=INFO
+# Weather providers
+WEATHER_API_BASE_URL=https://api.open-meteo.com/v1
+WEATHER_FALLBACK_API_BASE_URL=https://api.met.no/weatherapi/locationforecast/2.0
+WEATHER_FALLBACK_USER_AGENT=Agrifos/0.1 https://github.com/ferjovel06/agrifos
 ```
 
 App Flutter (`app_flutter/.env`):
@@ -222,6 +166,7 @@ App Flutter (`app_flutter/.env`):
 ```env
 SUPABASE_URL=https://[project-ref].supabase.co
 SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxxxxxxxxxxxx
+API_BASE_URL=https://agrifos-api.onrender.com
 ```
 
 ## Estructura modular
@@ -250,14 +195,13 @@ agrifos/
 │   │   │   ├── fertilization.py
 │   │   │   ├── weather.py                    # Alertas climáticas predictivas
 │   │   │   ├── phenology.py                # Calendario fenológico automatizado
-│   │   │   └── finances.py                 # Egresos, ingresos y dashboard de rentabilidad
+│   │   │   └── finances.py                 # Borrador; router aún no publicado
 │   │   ├── services/
 │   │   │   ├── diagnostic_service.py      # Cruce lectura/análisis vs. requerimientos del cultivo
 │   │   │   ├── fertilization_service.py    # Balance de masa N-P-K, calibración de sensores,
 │   │   │   │                              # cascada química (DAP→Urea→KCl) y dosis orgánica
 │   │   │   ├── weather_service.py            # Consumo del proveedor externo y generación de alertas
 │   │   │   ├── phenology_service.py        # Proyección de fases fenológicas por cultivo
-│   │   │   └── finances_service.py         # Cálculo de costos, margen y punto de equilibrio
 │   │   ├── integrations/
 │   │   │   └── weather_provider.py         # Cliente HTTP del proveedor meteorológico externo
 │   │   ├── repositories/           # Acceso a datos (consultas SQLAlchemy)
@@ -266,7 +210,8 @@ agrifos/
 │   │       └── base.py
 │   ├── alembic/                    # Migraciones de base de datos
 │   ├── tests/
-│   ├── requirements.txt
+│   ├── pyproject.toml              # Dependencias administradas con uv
+│   ├── uv.lock
 │   └── .env
 │
 ├── app_flutter/
@@ -276,26 +221,25 @@ agrifos/
 │   │   ├── main.dart
 │   │   ├── core/                   # Config, temas, constantes
 │   │   ├── data/
-│   │   │   ├── usb/                # Conexión OTG/Serial con el sensor NPK genérico
-│   │   │   └── api/                # Clientes REST (dio)
+│   │   │   ├── sensor/             # Conexión OTG/Serial con el sensor NPK genérico
+│   │   │   └── api/                # Repositorios y cliente REST (http)
 │   │   ├── domain/                 # Entidades y casos de uso
 │   │   ├── presentation/
 │   │   │   ├── splash/
 │   │   │   ├── auth/
-│   │   │   ├── farms/
-│   │   │   ├── parcels/
-│   │   │   ├── dashboard/          # Tablero en tiempo real (NPK, CE, pH, T°, HR)
-│   │   │   ├── lab_analysis/        # Captura de análisis de suelo (Vía B)
-│   │   │   ├── fertilization/      # Plan interactivo paso a paso
-│   │   │   ├── weather/              # Alertas climáticas predictivas
-│   │   │   ├── phenology/          # Calendario fenológico automatizado
-│   │   │   └── finances/           # Egresos, ingresos y dashboard de rentabilidad
+│   │   │   ├── farm/               # Registro de fincas y parcelas
+│   │   │   ├── sensor/             # Tablero NPK y diagnóstico
+│   │   │   ├── lab_analysis/       # Captura de análisis de suelo (Vía B)
+│   │   │   ├── planification/      # Interfaz de planificación
+│   │   │   ├── finance/            # Interfaz financiera
+│   │   │   └── profile/            # Perfil, contraseña y MFA
 │   │   └── shared/                 # Widgets reutilizables
 │   ├── .env
 │   └── pubspec.yaml
 │
 ├── docs/
-│   └── agrifos_er_diagram.mmd     # Diagrama ER completo (Mermaid)
+│   ├── agrifos_er_diagram.mmd     # Diagrama ER completo (Mermaid)
+│   └── guia_evaluador.md          # Prueba de API y APK
 │
 └── README.md
 ```
@@ -306,19 +250,19 @@ agrifos/
 
 ```bash
 # Instalar dependencias
-pip install -r requirements.txt
+uv sync --locked
 
 # Ejecutar migraciones
-alembic upgrade head
+uv run alembic upgrade head
 
 # Levantar servidor en modo desarrollo
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uv run fastapi dev app/main.py
 
 # Ejecutar pruebas
-pytest -v
+uv run --with pytest pytest -v
 
 # Crear una nueva migración
-alembic revision --autogenerate -m "descripcion_del_cambio"
+uv run alembic revision --autogenerate -m "descripcion_del_cambio"
 ```
 
 ### App Flutter
@@ -342,11 +286,13 @@ flutter test
 
 ## Ejemplos de endpoints
 
-Base URL: `https://api.agrifos.dev/v1`
+Base URL desplegada: `https://agrifos-api.onrender.com` (sin prefijo `/v1`). La especificación completa y ejecutable está en [Swagger UI](https://agrifos-api.onrender.com/docs).
+
+Los objetos de respuesta mostrados son abreviados para facilitar la lectura; Swagger contiene el contrato completo.
 
 ### Autenticación
 
-El registro e inicio de sesión ocurren directamente contra **Supabase Auth**, no contra este backend (ver [supabase.com/docs/guides/auth](https://supabase.com/docs/guides/auth)). Un trigger en Postgres crea automáticamente el perfil correspondiente en `public.users` al registrarse.
+El registro e inicio de sesión ocurren directamente contra **Supabase Auth** (ver [supabase.com/docs/guides/auth](https://supabase.com/docs/guides/auth)).
 
 ### Registrar una finca
 
@@ -357,11 +303,9 @@ Content-Type: application/json
 
 {
   "name": "Finca El Roble",
-  "location": {
-    "latitude": 12.1364,
-    "longitude": -86.2514
-  },
-  "area_hectares": 4.5
+  "area_hectares": 4.5,
+  "latitude": 12.1364,
+  "longitude": -86.2514
 }
 ```
 
@@ -369,34 +313,32 @@ Respuesta:
 
 ```json
 {
-  "status": 200,
-  "message": "Finca registrada exitosamente",
-  "data": {
-    "id": "fin_5a6b7c",
-    "name": "Finca El Roble",
-    "location": {
-      "latitude": 12.1364,
-      "longitude": -86.2514
-    },
-    "area_hectares": 4.5,
-    "registered_at": "2026-07-01T10:15:30Z"
-  }
+  "id": "00000000-0000-0000-0000-000000000001",
+  "user_id": "00000000-0000-0000-0000-000000000010",
+  "name": "Finca El Roble",
+  "area_hectares": 4.5,
+  "latitude": 12.1364,
+  "longitude": -86.2514,
+  "created_at": "2026-08-29T10:15:30Z",
+  "updated_at": "2026-08-29T10:15:30Z"
 }
 ```
 
 ### Registrar una parcela con su cultivo
 
 ```http
-POST /farms/{farm_id}/parcels
+POST /parcels
 Authorization: Bearer {token}
 Content-Type: application/json
 
 {
+  "farm_id": "00000000-0000-0000-0000-000000000001",
+  "crop_id": "00000000-0000-0000-0000-000000000002",
+  "variety_id": null,
   "name": "Parcela Norte",
-  "crop_id": "cafe_arabica",
-  "growth_stage": "floracion",
-  "planting_date": "2026-02-15",
-  "area_hectares": 1.2
+  "area_hectares": 1.2,
+  "plants_per_hectare": 5000,
+  "planting_date": "2026-02-15"
 }
 ```
 
@@ -404,28 +346,44 @@ Respuesta:
 
 ```json
 {
-  "status": 200,
-  "message": "Parcela registrada exitosamente",
-  "data": {
-    "id": "par_1a2b3c",
-    "name": "Parcela Norte",
-    "crop_id": "cafe_arabica",
-    "growth_stage": "floracion",
-    "planting_date": "2026-02-15",
-    "area_hectares": 1.2,
-    "registered_at": "2026-07-01T10:20:45Z"
-  }
+  "id": "00000000-0000-0000-0000-000000000003",
+  "farm_id": "00000000-0000-0000-0000-000000000001",
+  "crop_id": "00000000-0000-0000-0000-000000000002",
+  "variety_id": null,
+  "name": "Parcela Norte",
+  "area_hectares": 1.2,
+  "plants_per_hectare": 5000,
+  "planting_date": "2026-02-15",
+  "created_at": "2026-08-29T10:20:45Z",
+  "updated_at": "2026-08-29T10:20:45Z"
 }
 ```
 
 ### Enviar lectura del sensor (Vía A)
 
 ```http
-POST /parcels/{parcel_id}/readings
+POST /readings
 Authorization: Bearer {token}
 Content-Type: application/json
 
 {
+  "parcel_id": "00000000-0000-0000-0000-000000000003",
+  "nitrogen": 45.2,
+  "phosphorus": 18.7,
+  "potassium": 60.1,
+  "ec": 1.3,
+  "ph": 5.8,
+  "temperature": 24.6,
+  "humidity": 38.0
+}
+```
+
+Respuesta:
+
+```json
+{
+  "id": "00000000-0000-0000-0000-000000000004",
+  "parcel_id": "00000000-0000-0000-0000-000000000003",
   "nitrogen": 45.2,
   "phosphorus": 18.7,
   "potassium": 60.1,
@@ -433,40 +391,38 @@ Content-Type: application/json
   "ph": 5.8,
   "temperature": 24.6,
   "humidity": 38.0,
-  "source": "OTG"
-}
-```
-
-Respuesta:
-
-```json
-{
-  "id": "lec_9f2a3c",
-  "parcel_id": "par_1a2b3c",
-  "timestamp": "2026-07-01T14:32:10Z",
-  "status": "procesada"
+  "recorded_at": "2026-08-29T14:32:10Z",
+  "diagnosis": { "source": "sensor", "parameters": [], "warnings": [] }
 }
 ```
 
 ### Registrar un análisis de laboratorio (Vía B)
 
 ```http
-POST /parcels/{parcel_id}/lab-analysis
+POST /lab-analyses
 Authorization: Bearer {token}
 Content-Type: application/json
 
 {
+  "parcel_id": "00000000-0000-0000-0000-000000000003",
+  "sample_code": "MUESTRA-001",
+  "sampled_at": "2026-08-20T10:00:00Z",
+  "depth_start_cm": 0,
+  "depth_end_cm": 20,
   "ph": 5.6,
+  "ph_method": "agua 1:2.5",
+  "ec": 1.1,
+  "ec_method": "extracto 1:5",
   "organic_matter_pct": 3.1,
   "cic": 14.2,
-  "texture": {
-    "clay_pct": 22,
-    "silt_pct": 38,
-    "sand_pct": 40
-  },
+  "clay_pct": 22,
+  "silt_pct": 38,
+  "sand_pct": 40,
   "nitrogen": 0.18,
   "phosphorus": 12.4,
+  "phosphorus_method": "Bray II",
   "potassium": 0.32,
+  "potassium_method": "acetato de amonio",
   "calcium": 6.1,
   "magnesium": 1.8,
   "sulfur": 9.5,
@@ -478,20 +434,17 @@ Respuesta:
 
 ```json
 {
-  "status": 200,
-  "message": "Análisis de laboratorio registrado exitosamente",
-  "data": {
-    "id": "lab_4d5e6f",
-    "parcel_id": "par_1a2b3c",
-    "timestamp": "2026-07-01T15:10:05Z"
-  }
+  "id": "00000000-0000-0000-0000-000000000005",
+  "parcel_id": "00000000-0000-0000-0000-000000000003",
+  "sample_code": "MUESTRA-001",
+  "recorded_at": "2026-08-29T15:10:05Z"
 }
 ```
 
 ### Obtener diagnóstico de una lectura o análisis
 
 ```http
-GET /reading/{reading_id}/diagnostic
+GET /diagnostics/readings/{reading_id}
 Authorization: Bearer {token}
 ```
 
@@ -499,14 +452,14 @@ Respuesta:
 
 ```json
 {
-  "reading_id": "lec_9f2a3c",
-  "crop": "cafe_arabica",
-  "stage": "floracion",
-  "results": [
-    { "parameter": "nitrogen", "value": 45.2, "optimal_range": [50, 70], "status": "deficiente" },
-    { "parameter": "ph", "value": 5.8, "optimal_range": [5.5, 6.2], "status": "optimo" },
-    { "parameter": "potassium", "value": 60.1, "optimal_range": [55, 65], "status": "optimo" }
-  ]
+  "reading_id": "00000000-0000-0000-0000-000000000004",
+  "parcel_id": "00000000-0000-0000-0000-000000000003",
+  "crop": "cafe",
+  "source": "sensor",
+  "measurement_method": "seven_in_one_sensor",
+  "overall_confidence": "low",
+  "parameters": [],
+  "warnings": []
 }
 ```
 
@@ -518,7 +471,5 @@ Los fundamentos matemáticos del motor de cálculo (balance de masa N-P-K, calib
 2. J. S. Benton, *Plant Nutrition and Soil Fertility Manual*, 2.ª ed., CRC Press, 2012.
 3. CENICAFÉ, *Manual del Cafetero Colombiano*, vol. 2, Chinchiná, Colombia, 2013.
 4. CIMMYT, *Maize Production in the Tropics and Subtropics*, México D.F., 2015.
-5. A. N. Scientist et al., "Calibration of capacitive soil moisture and NPK sensors for IoT precision agriculture platforms," *IEEE Sensors Journal*, vol. 19, n.º 14, 2019.
-6. M. J. Edafólogo, "Eficiencia en la absorción de Nitrógeno y Fósforo en suelos volcánicos de Centroamérica," *Journal of Soil Science and Plant Nutrition*, vol. 45, n.º 2, 2021.
 
 ---

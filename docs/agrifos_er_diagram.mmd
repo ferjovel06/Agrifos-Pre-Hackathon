@@ -48,7 +48,6 @@ erDiagram
     float area_hectares
     int plants_per_hectare
     date planting_date
-    string growth_stage
   }
   CROP {
     uuid id PK
@@ -74,7 +73,14 @@ erDiagram
   LAB_ANALYSIS {
     uuid id PK
     uuid parcel_id FK
+    string sample_code
+    timestamp sampled_at
+    float depth_start_cm
+    float depth_end_cm
     float ph
+    string ph_method
+    float ec
+    string ec_method
     float organic_matter_pct
     float cic
     float clay_pct
@@ -82,7 +88,9 @@ erDiagram
     float sand_pct
     float nitrogen
     float phosphorus
+    string phosphorus_method
     float potassium
+    string potassium_method
     float calcium
     float magnesium
     float sulfur
@@ -151,7 +159,12 @@ erDiagram
     uuid farm_id FK
     uuid parcel_id FK
     string type
+    string title
     string message
+    string severity
+    date event_date
+    float risk_score
+    boolean is_active
     timestamp created_at
   }
   EXPENSE {
