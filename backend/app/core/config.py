@@ -11,6 +11,12 @@ class Settings(BaseSettings):
 
     SUPABASE_URL: str
     WEATHER_API_BASE_URL: str = "https://api.open-meteo.com/v1"
+    WEATHER_FALLBACK_API_BASE_URL: str = (
+        "https://api.met.no/weatherapi/locationforecast/2.0"
+    )
+    WEATHER_FALLBACK_USER_AGENT: str = (
+        "Agrifos/0.1 https://github.com/ferjovel06/agrifos"
+    )
     ALLOWED_ORIGINS: str = ""
 
     @property

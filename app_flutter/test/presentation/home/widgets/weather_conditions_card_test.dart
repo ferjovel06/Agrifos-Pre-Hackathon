@@ -18,6 +18,7 @@ void main() {
     );
 
     expect(find.text('CONDICIONES ACTUALES'), findsOneWidget);
+    expect(find.text('Datos: Open-Meteo'), findsOneWidget);
     expect(find.text('Condiciones favorables para labores'), findsOneWidget);
     expect(find.text('24°C'), findsOneWidget);
     expect(find.text('72% humedad'), findsOneWidget);
@@ -57,6 +58,7 @@ void main() {
 WeatherForecast _forecast() {
   return WeatherForecast(
     farmId: 'farm',
+    provider: 'Open-Meteo',
     current: CurrentWeather(
       observedAt: DateTime(2026, 8, 27, 10),
       temperatureC: 24,
