@@ -3,7 +3,11 @@ from datetime import date, datetime
 from time import monotonic
 from typing import Any, Callable
 
-from app.integrations.weather_provider import OpenMeteoProvider, WeatherProviderError
+from app.integrations.weather_provider import (
+    FallbackWeatherProvider,
+    WeatherProvider,
+    WeatherProviderError,
+)
 from app.models import Farm
 from app.schemas.weather import (
     CurrentWeatherRead,
@@ -70,10 +74,10 @@ _shared_forecast_cache = WeatherForecastCache()
 class WeatherService:
     def __init__(
         self,
-        provider: OpenMeteoProvider | None = None,
+        provider: WeatherProvider | None = None,
         cache: WeatherForecastCache | None = None,
     ):
-        self._provider = provider or OpenMeteoProvider()
+        self._provider = provider or FallbackWeatherProvider()
         self._cache = cache or _shared_forecast_cache
 
     async def forecast(self, farm: Farm, days: int) -> WeatherForecastRead:
@@ -103,7 +107,7 @@ class WeatherService:
             forecast = WeatherForecastRead(
                 farm_id=farm.id,
                 farm_name=farm.name,
-                provider="Open-Meteo",
+                provider=payload.get("provider", "Open-Meteo"),
                 latitude=payload.get("latitude", farm.latitude),
                 longitude=payload.get("longitude", farm.longitude),
                 timezone=payload["timezone"],

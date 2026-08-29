@@ -7,6 +7,8 @@ import httpx
 from fastapi import HTTPException
 
 from app.integrations.weather_provider import (
+    FallbackWeatherProvider,
+    MetNorwayProvider,
     OpenMeteoProvider,
     WeatherProviderRateLimited,
     WeatherProviderTimeout,
@@ -43,6 +45,37 @@ def provider_payload(days: int = 2):
             "precipitation_probability_max": [75] * days,
             "et0_fao_evapotranspiration": [3.1] * days,
         },
+    }
+
+
+def met_norway_payload(days: int = 2):
+    timeseries = []
+    for day in range(days):
+        for hour in (0, 6, 12, 18):
+            timeseries.append(
+                {
+                    "time": f"2026-09-{day + 1:02d}T{hour:02d}:00:00Z",
+                    "data": {
+                        "instant": {
+                            "details": {
+                                "air_temperature": 22.0 + hour / 6,
+                                "relative_humidity": 78.4,
+                                "wind_speed": 3.5,
+                            }
+                        },
+                        "next_6_hours": {
+                            "summary": {"symbol_code": "rain_day"},
+                            "details": {
+                                "precipitation_amount": 1.5,
+                                "probability_of_precipitation": 70.2,
+                            },
+                        },
+                    },
+                }
+            )
+    return {
+        "geometry": {"coordinates": [-86.2, 12.1, 90]},
+        "properties": {"timeseries": timeseries},
     }
 
 
@@ -115,6 +148,59 @@ class OpenMeteoProviderTests(unittest.IsolatedAsyncioTestCase):
                 await provider.fetch_forecast(12.1, -86.2, 7)
 
         self.assertEqual(attempts, 1)
+
+
+class MetNorwayProviderTests(unittest.IsolatedAsyncioTestCase):
+    async def test_identifies_client_and_normalizes_compact_forecast(self):
+        async def handler(request: httpx.Request):
+            self.assertEqual(request.url.params["lat"], "12.1")
+            self.assertEqual(request.url.params["lon"], "-86.2")
+            self.assertEqual(
+                request.headers["User-Agent"],
+                "Agrifos/0.1 https://github.com/ferjovel06/agrifos",
+            )
+            return httpx.Response(200, json=met_norway_payload())
+
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(handler)
+        ) as client:
+            provider = MetNorwayProvider(client=client)
+            result = await provider.fetch_forecast(12.1, -86.2, 2)
+
+        self.assertEqual(result["provider"], "MET Norway")
+        self.assertEqual(result["current"]["relative_humidity_2m"], 78)
+        self.assertEqual(result["daily"]["precipitation_sum"], [6.0, 6.0])
+        self.assertEqual(len(result["daily"]["time"]), 2)
+
+
+class FallbackWeatherProviderTests(unittest.IsolatedAsyncioTestCase):
+    async def test_uses_fallback_when_primary_is_rate_limited(self):
+        primary = SimpleNamespace(
+            fetch_forecast=AsyncMock(
+                side_effect=WeatherProviderRateLimited("busy")
+            )
+        )
+        fallback = SimpleNamespace(
+            fetch_forecast=AsyncMock(return_value={"provider": "fallback"})
+        )
+        provider = FallbackWeatherProvider(primary=primary, fallback=fallback)
+
+        result = await provider.fetch_forecast(12.1, -86.2, 7)
+
+        self.assertEqual(result["provider"], "fallback")
+        fallback.fetch_forecast.assert_awaited_once_with(12.1, -86.2, 7)
+
+    async def test_does_not_call_fallback_when_primary_succeeds(self):
+        primary = SimpleNamespace(
+            fetch_forecast=AsyncMock(return_value={"provider": "primary"})
+        )
+        fallback = SimpleNamespace(fetch_forecast=AsyncMock())
+        provider = FallbackWeatherProvider(primary=primary, fallback=fallback)
+
+        result = await provider.fetch_forecast(12.1, -86.2, 7)
+
+        self.assertEqual(result["provider"], "primary")
+        fallback.fetch_forecast.assert_not_awaited()
 
 
 class WeatherServiceTests(unittest.IsolatedAsyncioTestCase):

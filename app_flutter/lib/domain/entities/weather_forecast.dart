@@ -52,11 +52,13 @@ class DailyWeather {
 
 class WeatherForecast {
   final String farmId;
+  final String provider;
   final CurrentWeather current;
   final List<DailyWeather> daily;
 
   const WeatherForecast({
     required this.farmId,
+    required this.provider,
     required this.current,
     required this.daily,
   });
@@ -64,6 +66,7 @@ class WeatherForecast {
   factory WeatherForecast.fromJson(Map<String, dynamic> json) {
     return WeatherForecast(
       farmId: json['farm_id'] as String,
+      provider: json['provider'] as String,
       current: CurrentWeather.fromJson(json['current'] as Map<String, dynamic>),
       daily: (json['daily'] as List)
           .cast<Map<String, dynamic>>()

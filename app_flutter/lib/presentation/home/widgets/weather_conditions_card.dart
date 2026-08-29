@@ -69,11 +69,11 @@ class WeatherConditionsCard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Row(
+        Row(
           children: [
-            Icon(Icons.circle, size: 7, color: Color(0xFF6FB782)),
-            SizedBox(width: 7),
-            Text(
+            const Icon(Icons.circle, size: 7, color: Color(0xFF6FB782)),
+            const SizedBox(width: 7),
+            const Text(
               'CONDICIONES ACTUALES',
               style: TextStyle(
                 color: Color(0xFFD7D2CA),
@@ -81,6 +81,11 @@ class WeatherConditionsCard extends StatelessWidget {
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.2,
               ),
+            ),
+            const Spacer(),
+            Text(
+              'Datos: ${data.provider}',
+              style: const TextStyle(color: Color(0xFFB9C7BC), fontSize: 8),
             ),
           ],
         ),

@@ -20,6 +20,10 @@ services:
         value: "300"
       - key: WEATHER_API_BASE_URL
         value: https://api.open-meteo.com/v1
+      - key: WEATHER_FALLBACK_API_BASE_URL
+        value: https://api.met.no/weatherapi/locationforecast/2.0
+      - key: WEATHER_FALLBACK_USER_AGENT
+        value: Agrifos/0.1 https://github.com/ferjovel06/agrifos
       - key: DATABASE_URL
         sync: false
       - key: SUPABASE_URL
