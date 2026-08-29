@@ -1,6 +1,6 @@
 # Fundamentos Matemáticos y Algorítmicos del Motor de Cálculo Agrifos para Fertilización de Precisión en Cultivos de Café y Maíz
 
-**Resumen (Abstract)**— El presente documento técnico establece los fundamentos matemáticos y edafológicos del motor de cálculo para un sistema Agrifos de precisión. Se detalla la metodología para cuantificar los requerimientos nutricionales de macroelementos (N, P, K) en los cultivos de café (*Coffea arabica*) y maíz (*Zea mays L.*), en función de su etapa fenológica y variedad. Además, se definen los algoritmos para la interpretación de análisis de suelos provenientes tanto de laboratorios convencionales como de sensores electrónicos in situ (7 en 1). Finalmente, se exponen los algoritmos para la recomendación de fertilizantes sintéticos y enmiendas orgánicas, integrando factores de eficiencia de asimilación y un modelo de riesgo climático que mitiga las pérdidas por lixiviación y escorrentía superficial.
+**Abstract**— El presente documento técnico establece los fundamentos matemáticos y edafológicos del motor de cálculo para un sistema Agrifos de precisión. Se detalla la metodología para cuantificar los requerimientos nutricionales de macroelementos (N, P, K) en los cultivos de café (*Coffea arabica*) y maíz (*Zea mays L.*), en función de su etapa fenológica y variedad. Además, se definen los algoritmos para la interpretación de análisis de suelos provenientes tanto de laboratorios convencionales como de sensores electrónicos in situ (7 en 1). Finalmente, se exponen los algoritmos para la recomendación de fertilizantes sintéticos y enmiendas orgánicas, integrando factores de eficiencia de asimilación y un modelo de riesgo climático que mitiga las pérdidas por lixiviación y escorrentía superficial.
 
 **Términos Clave**— Agricultura de Precisión, Algoritmos de Recomendación, Sensores NPK, Fenología, Edafología Computacional.
 
@@ -155,7 +155,7 @@ El algoritmo desarrollado encapsula la complejidad de las interacciones suelo-pl
 
 ## VII. Catálogo Extendido de Fertilizantes
 
-*Ver documento completo: [`informe_fenologia_motor_fertilizacion_cafe.md — Sección 11`](./informe_fenologia_motor_fertilizacion_cafe.md)*
+*Ver documento completo: [`coffee_phenology_and_fertilization_engine.pdf`](./coffee_phenology_and_fertilization_engine.pdf), Sección 11.*
 
 El motor original usa Urea, DAP y KCl como fuentes estándar. La especificación extendida añade las siguientes fuentes para cubrir déficits específicos de S, Ca, Mg y escenarios donde se debe evitar el cloro o el nitrógeno adicional.
 
@@ -187,7 +187,7 @@ El motor original usa Urea, DAP y KCl como fuentes estándar. La especificación
 
 ## VIII. Modelo Fenológico del Café
 
-*Ver documento completo: [`informe_fenologia_motor_fertilizacion_cafe.md`](./informe_fenologia_motor_fertilizacion_cafe.md)*
+*Ver documento completo: [`coffee_phenology_and_fertilization_engine.pdf`](./coffee_phenology_and_fertilization_engine.pdf).*
 
 ### VIII.A Ciclo de vida del cafeto (etapas por edad en meses)
 
@@ -229,7 +229,7 @@ Una parcela puede tener múltiples cohortes activas simultáneamente (varias fec
 
 ## IX. Rangos de Referencia para Análisis de Laboratorio (Café)
 
-*Ver documento completo con metadatos y guía de implementación: [`parametros_laboratorio_cafe.md`](./parametros_laboratorio_cafe.md)*
+*Ver documento completo con metadatos y guía de implementación: [`coffee_soil_laboratory_parameters.pdf`](./coffee_soil_laboratory_parameters.pdf).*
 
 ### IX.A Macronutrientes y parámetros principales
 

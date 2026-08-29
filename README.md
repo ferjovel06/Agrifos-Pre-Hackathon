@@ -85,13 +85,13 @@ Módulo administrativo integral para manejar la parcela como una empresa, con co
 
 ## Documentación Técnica de Referencia
 
-Los detalles completos del motor agronómico se distribuyen en tres documentos de `docs/`:
+Los detalles completos del motor agronómico se distribuyen en los documentos de `docs/`:
 
 | Documento | Contenido |
 |---|---|
 | [`agrifos_engine_documentation.md`](docs/agrifos_engine_documentation.md) | Ecuaciones matemáticas del motor de balance de masa N-P-K, calibración de sensores, cascada de fertilizantes químicos y modelo de riesgo climático |
-| [`informe_fenologia_motor_fertilizacion_cafe.md`](docs/informe_fenologia_motor_fertilizacion_cafe.md) | Documento completo sobre fenología, motor de fertilización, ejemplos, validación, apéndices y referencias |
-| [`parametros_laboratorio_cafe.md`](docs/parametros_laboratorio_cafe.md) | Documento completo de rangos de laboratorio, criterios de interpretación, implementación y referencias |
+| [`coffee_phenology_and_fertilization_engine.pdf`](docs/coffee_phenology_and_fertilization_engine.pdf) | Documento completo sobre fenología, motor de fertilización, ejemplos, validación, apéndices y referencias |
+| [`coffee_soil_laboratory_parameters.pdf`](docs/coffee_soil_laboratory_parameters.pdf) | Documento completo de rangos de laboratorio, criterios de interpretación, implementación y referencias |
 | [`guia_evaluador.md`](docs/guia_evaluador.md) | Instrucciones para activar el backend en Render, probar endpoints protegidos e instalar el APK |
 
 ## Motor de Cálculo
@@ -103,7 +103,7 @@ El motor agronómico combina los datos del suelo con el cultivo, la variedad, la
 - **Salidas:** diagnóstico por parámetro y recomendaciones de fertilización expresadas en unidades aplicables en campo.
 - **Alcance inicial:** café y maíz, con advertencias sobre calibración, métodos de laboratorio y límites de interpretación.
 
-Las ecuaciones, factores, supuestos, ejemplos y referencias se documentan en [`docs/agrifos_engine_documentation.md`](docs/agrifos_engine_documentation.md). El detalle fenológico y los rangos de laboratorio están en [`docs/informe_fenologia_motor_fertilizacion_cafe.md`](docs/informe_fenologia_motor_fertilizacion_cafe.md) y [`docs/parametros_laboratorio_cafe.md`](docs/parametros_laboratorio_cafe.md).
+Las ecuaciones, factores, supuestos, ejemplos y referencias se documentan en [`docs/agrifos_engine_documentation.md`](docs/agrifos_engine_documentation.md). El detalle fenológico y los rangos de laboratorio están en [`docs/coffee_phenology_and_fertilization_engine.pdf`](docs/coffee_phenology_and_fertilization_engine.pdf) y [`docs/coffee_soil_laboratory_parameters.pdf`](docs/coffee_soil_laboratory_parameters.pdf).
 
 ## Dependencias
 
