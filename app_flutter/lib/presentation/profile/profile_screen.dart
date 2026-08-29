@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -8,6 +9,7 @@ import '../../data/api/parcel_repository.dart';
 import '../../data/api/profile_repository.dart';
 import '../../domain/entities/crop.dart';
 import '../../domain/entities/farm.dart';
+import '../../domain/entities/mfa_enrollment.dart';
 import '../../domain/entities/parcel.dart';
 import '../../domain/entities/user_profile.dart';
 import '../../domain/entities/variety.dart';
@@ -962,40 +964,544 @@ class _PersonalTabState extends State<_PersonalTab> {
   }
 }
 
-class _SettingsTab extends StatelessWidget {
+class _SettingsTab extends StatefulWidget {
   const _SettingsTab({required this.email, required this.onSignOut});
   final String email;
   final VoidCallback onSignOut;
 
   @override
-  Widget build(BuildContext context) => Column(
-    children: [
-      _InfoCard(
-        icon: Icons.lock_outline,
-        title: 'Seguridad de la cuenta',
-        children: [
-          _ReadOnlyField(label: 'CORREO DE LA CUENTA', value: email),
-          const Text(
-            'Próximamente podrás cambiar tu contraseña y administrar otras opciones de seguridad desde aquí.',
-            style: TextStyle(color: Color(0xFF7B6962), height: 1.5),
+  State<_SettingsTab> createState() => _SettingsTabState();
+}
+
+class _SettingsTabState extends State<_SettingsTab> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<AuthProvider>().loadMfaStatus();
+    });
+  }
+
+  Future<void> _enableMfa() async {
+    final enabled = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const _MfaEnrollmentDialog(),
+    );
+    if (enabled == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Verificación en dos pasos activada.')),
+      );
+    }
+  }
+
+  Future<void> _disableMfa() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Desactivar verificación'),
+        content: const Text(
+          'Tu cuenta quedará protegida únicamente por la contraseña.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF9B3D35),
+            ),
+            child: const Text('Desactivar'),
           ),
         ],
       ),
-      const SizedBox(height: 12),
-      SizedBox(
-        width: double.infinity,
-        child: OutlinedButton.icon(
-          onPressed: onSignOut,
-          icon: const Icon(Icons.logout_rounded),
-          label: const Text('Cerrar sesión'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: const Color(0xFF9B3D35),
-            padding: const EdgeInsets.symmetric(vertical: 12),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final auth = context.read<AuthProvider>();
+    final disabled = await auth.disableMfa();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          disabled
+              ? 'Verificación en dos pasos desactivada.'
+              : auth.errorMessage ?? 'No se pudo desactivar la verificación.',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _changePassword() async {
+    final changed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const _ChangePasswordDialog(),
+    );
+    if (changed == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Contraseña actualizada.')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+    final enabled = auth.mfaEnabled;
+    return Column(
+      children: [
+        _InfoCard(
+          icon: Icons.lock_outline,
+          title: 'Seguridad de la cuenta',
+          children: [
+            _ReadOnlyField(label: 'CORREO DE LA CUENTA', value: widget.email),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: auth.isUpdatingPassword ? null : _changePassword,
+                icon: const Icon(Icons.password_rounded),
+                label: const Text('Cambiar contraseña'),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF7F5F2),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    enabled == true
+                        ? Icons.verified_user_rounded
+                        : Icons.security_outlined,
+                    color: enabled == true
+                        ? const Color(0xFF2E5B3D)
+                        : const Color(0xFF7B6962),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Verificación en dos pasos',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          enabled == null
+                              ? 'Consultando estado…'
+                              : enabled
+                              ? 'Activada con una aplicación autenticadora.'
+                              : 'Añade una segunda capa de protección.',
+                          style: const TextStyle(
+                            color: Color(0xFF7B6962),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: enabled == null || auth.isUpdatingMfa
+                    ? null
+                    : enabled
+                    ? _disableMfa
+                    : _enableMfa,
+                icon: auth.isUpdatingMfa
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(enabled == true ? Icons.lock_open : Icons.security),
+                label: Text(
+                  enabled == true
+                      ? 'Desactivar verificación'
+                      : 'Configurar autenticador',
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: widget.onSignOut,
+            icon: const Icon(Icons.logout_rounded),
+            label: const Text('Cerrar sesión'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF9B3D35),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ChangePasswordDialog extends StatefulWidget {
+  const _ChangePasswordDialog();
+
+  @override
+  State<_ChangePasswordDialog> createState() => _ChangePasswordDialogState();
+}
+
+class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _currentPasswordController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmController = TextEditingController();
+  bool _obscurePassword = true;
+
+  @override
+  void dispose() {
+    _currentPasswordController.dispose();
+    _passwordController.dispose();
+    _confirmController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    final updated = await context.read<AuthProvider>().updatePassword(
+      currentPassword: _currentPasswordController.text,
+      newPassword: _passwordController.text,
+    );
+    if (updated && mounted) Navigator.pop(context, true);
+  }
+
+  String? _validatePassword(String? value) {
+    if (value == null || value.length < 8) {
+      return 'Usa al menos 8 caracteres.';
+    }
+    if (!RegExp(r'[A-Z]').hasMatch(value) ||
+        !RegExp(r'[a-z]').hasMatch(value) ||
+        !RegExp(r'[0-9]').hasMatch(value)) {
+      return 'Incluye mayúscula, minúscula y número.';
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+    return AlertDialog(
+      title: const Text('Cambiar contraseña'),
+      content: SizedBox(
+        width: 360,
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: _currentPasswordController,
+                obscureText: _obscurePassword,
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(
+                  labelText: 'Contraseña actual',
+                  prefixIcon: Icon(Icons.lock_clock_outlined),
+                ),
+                validator: (value) => value == null || value.isEmpty
+                    ? 'Ingresa tu contraseña actual.'
+                    : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _passwordController,
+                obscureText: _obscurePassword,
+                textInputAction: TextInputAction.next,
+                decoration: InputDecoration(
+                  labelText: 'Nueva contraseña',
+                  prefixIcon: const Icon(Icons.lock_outline),
+                  suffixIcon: IconButton(
+                    onPressed: () => setState(
+                      () => _obscurePassword = !_obscurePassword,
+                    ),
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                    ),
+                  ),
+                ),
+                validator: _validatePassword,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _confirmController,
+                obscureText: _obscurePassword,
+                textInputAction: TextInputAction.done,
+                decoration: const InputDecoration(
+                  labelText: 'Confirmar contraseña',
+                  prefixIcon: Icon(Icons.lock_outline),
+                ),
+                validator: (value) => value == _passwordController.text
+                    ? null
+                    : 'Las contraseñas no coinciden.',
+                onFieldSubmitted: (_) {
+                  if (!auth.isUpdatingPassword) _submit();
+                },
+              ),
+              if (auth.errorMessage != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  auth.errorMessage!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Color(0xFF9B3D35)),
+                ),
+              ],
+            ],
           ),
         ),
       ),
-    ],
-  );
+      actions: [
+        TextButton(
+          onPressed: auth.isUpdatingPassword
+              ? null
+              : () => Navigator.pop(context, false),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: auth.isUpdatingPassword ? null : _submit,
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF2E5B3D),
+          ),
+          child: auth.isUpdatingPassword
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Text('Guardar'),
+        ),
+      ],
+    );
+  }
+}
+
+class _MfaEnrollmentDialog extends StatefulWidget {
+  const _MfaEnrollmentDialog();
+
+  @override
+  State<_MfaEnrollmentDialog> createState() => _MfaEnrollmentDialogState();
+}
+
+class _MfaEnrollmentDialogState extends State<_MfaEnrollmentDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _codeController = TextEditingController();
+  MfaEnrollment? _enrollment;
+  String? _loadError;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEnrollment();
+  }
+
+  @override
+  void dispose() {
+    _codeController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadEnrollment() async {
+    setState(() => _loadError = null);
+    final auth = context.read<AuthProvider>();
+    final enrollment = await auth.beginMfaEnrollment();
+    if (!mounted) return;
+    setState(() {
+      _enrollment = enrollment;
+      _loadError = enrollment == null ? auth.errorMessage : null;
+    });
+  }
+
+  Future<void> _cancel() async {
+    final enrollment = _enrollment;
+    if (enrollment != null) {
+      await context.read<AuthProvider>().cancelMfaEnrollment(
+        enrollment.factorId,
+      );
+    }
+    if (mounted) Navigator.pop(context, false);
+  }
+
+  Future<void> _confirm() async {
+    if (!_formKey.currentState!.validate() || _enrollment == null) return;
+    final auth = context.read<AuthProvider>();
+    final success = await auth.confirmMfaEnrollment(
+      factorId: _enrollment!.factorId,
+      code: _codeController.text,
+    );
+    if (success && mounted) Navigator.pop(context, true);
+  }
+
+  String _svgMarkup(String dataUri) {
+    final comma = dataUri.indexOf(',');
+    final encoded = comma >= 0 ? dataUri.substring(comma + 1) : dataUri;
+    return encoded.trimLeft().startsWith('<svg')
+        ? encoded
+        : Uri.decodeComponent(encoded);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+    return PopScope(
+      canPop: false,
+      child: AlertDialog(
+        title: const Text('Configurar autenticador'),
+        content: SizedBox(
+          width: 360,
+          child: _enrollment == null
+              ? _loadError == null
+                    ? const Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    : Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(_loadError!, textAlign: TextAlign.center),
+                          const SizedBox(height: 12),
+                          TextButton(
+                            onPressed: auth.isUpdatingMfa
+                                ? null
+                                : _loadEnrollment,
+                            child: const Text('Reintentar'),
+                          ),
+                        ],
+                      )
+              : SingleChildScrollView(
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          '1. Escanea este código con Google Authenticator, Microsoft Authenticator u otra app compatible.',
+                          style: TextStyle(height: 1.4),
+                        ),
+                        const SizedBox(height: 14),
+                        Container(
+                          width: 190,
+                          height: 190,
+                          padding: const EdgeInsets.all(8),
+                          color: Colors.white,
+                          child: SvgPicture.string(
+                            _svgMarkup(_enrollment!.qrCode),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        ExpansionTile(
+                          tilePadding: EdgeInsets.zero,
+                          title: const Text('No puedo escanear el código'),
+                          children: [
+                            const Text(
+                              'Ingresa manualmente esta clave en tu autenticador:',
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 8),
+                            SelectableText(
+                              _enrollment!.secret,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontFamily: 'monospace',
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: 'Copiar clave',
+                              onPressed: () {
+                                Clipboard.setData(
+                                  ClipboardData(text: _enrollment!.secret),
+                                );
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Clave copiada.'),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.copy_rounded),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        const Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            '2. Escribe el código de 6 dígitos que aparece en la app.',
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        TextFormField(
+                          controller: _codeController,
+                          keyboardType: TextInputType.number,
+                          textAlign: TextAlign.center,
+                          maxLength: 6,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          decoration: const InputDecoration(
+                            labelText: 'Código de verificación',
+                            hintText: '000000',
+                            counterText: '',
+                          ),
+                          validator: (value) => value?.length == 6
+                              ? null
+                              : 'Ingresa los 6 dígitos.',
+                        ),
+                        if (auth.errorMessage != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            auth.errorMessage!,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: Color(0xFF9B3D35)),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: auth.isUpdatingMfa ? null : _cancel,
+            child: const Text('Cancelar'),
+          ),
+          if (_enrollment != null)
+            FilledButton(
+              onPressed: auth.isUpdatingMfa ? null : _confirm,
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF2E5B3D),
+              ),
+              child: auth.isUpdatingMfa
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('Activar'),
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 class _PlaceholderCard extends StatelessWidget {

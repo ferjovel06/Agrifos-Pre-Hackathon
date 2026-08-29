@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'core/env.dart';
+import 'core/supabase_http_client.dart';
 import 'data/api/auth_repository.dart';
 import 'presentation/auth/auth_provider.dart';
 import 'presentation/auth/auth_gate.dart';
@@ -20,6 +21,7 @@ Future<void> main() async {
   await Supabase.initialize(
     url: Env.supabaseUrl,
     publishableKey: Env.supabasePublishableKey,
+    httpClient: SupabaseHttpClient(),
   );
 
   runApp(const AgrifosApp());

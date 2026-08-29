@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:app_flutter/shared/field_label.dart';
 import 'auth_provider.dart';
+import 'password_reset_request_screen.dart';
 import 'widgets/feature_pill.dart';
 
 class AuthScreen extends StatefulWidget {
@@ -241,54 +241,16 @@ class _LoginFormState extends State<_LoginForm> {
       );
       return;
     }
-
-    final session = Supabase.instance.client.auth.currentSession;
-    final token = session?.accessToken;
-
-    print('TOKEN JWT: $token');
-
-    if (token != null && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Token listo: $token'),
-          duration: const Duration(seconds: 6),
-        ),
-      );
-    }
   }
 
-  Future<void> _forgotPassword() async {
-    final email = _emailController.text.trim();
-    if (email.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Escribe tu correo primero para poder enviarte el enlace.',
-          ),
+  void _forgotPassword() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PasswordResetRequestScreen(
+          initialEmail: _emailController.text.trim(),
         ),
-      );
-      return;
-    }
-    try {
-      await context.read<AuthProvider>().sendPasswordReset(email);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Si el correo existe, te llegará un enlace de recuperación.',
-            ),
-          ),
-        );
-      }
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No se pudo enviar el correo. Intenta más tarde.'),
-          ),
-        );
-      }
-    }
+      ),
+    );
   }
 
   @override
@@ -354,8 +316,9 @@ class _LoginFormState extends State<_LoginForm> {
               ),
             ),
             validator: (value) {
-              if (value == null || value.isEmpty)
+              if (value == null || value.isEmpty) {
                 return 'Ingresa tu contraseña.';
+              }
               return null;
             },
           ),
@@ -432,15 +395,11 @@ class _RegisterFormState extends State<_RegisterForm> {
 
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          ok
-              ? 'Cuenta creada correctamente.'
-              : (auth.errorMessage ?? 'Error al registrarse'),
-        ),
-      ),
-    );
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(auth.errorMessage ?? 'Error al registrarse')),
+      );
+    }
   }
 
   @override
