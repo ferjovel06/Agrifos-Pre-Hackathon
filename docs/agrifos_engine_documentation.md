@@ -140,9 +140,122 @@ El algoritmo desarrollado encapsula la complejidad de las interacciones suelo-pl
 
 ## VI. Referencias
 
-[1] FAO, "Fertilizers and their use: A pocket guide for extension officers," 4th ed. Food and Agriculture Organization of the United Nations, Rome, 2000.
-[2] J. S. Benton, *Plant Nutrition and Soil Fertility Manual*, 2nd ed. CRC Press, Taylor & Francis Group, Boca Raton, FL, 2012.
-[3] CENICAFÉ, "Manual del Cafetero Colombiano: Investigación y tecnología para la sostenibilidad de la caficultura," Vol. 2, Centro Nacional de Investigaciones de Café, Chinchiná, Colombia, 2013.
-[4] CIMMYT, "Maize Production in the Tropics and Subtropics," International Maize and Wheat Improvement Center, Mexico, D.F., 2015.
-[5] A. N. Scientist et al., "Calibration of capacitive soil moisture and NPK sensors for IoT precision agriculture platforms," *IEEE Sensors Journal*, vol. 19, no. 14, pp. 5831-5839, Jul. 2019.
-[6] M. J. Edafólogo, "Eficiencia en la absorción de Nitrógeno y Fósforo en suelos volcánicos de Centroamérica," *Journal of Soil Science and Plant Nutrition*, vol. 45, no. 2, pp. 112-125, 2021.
+[1] FAO. (2000). *Fertilizers and their use: A pocket guide for extension officers* (4th ed.). Food and Agriculture Organization of the United Nations.
+[2] Benton, J. S. (2012). *Plant nutrition and soil fertility manual* (2nd ed.). CRC Press.
+[3] Cenicafé. (2013). *Manual del cafetero colombiano: Investigación y tecnología para la sostenibilidad de la caficultura* (Vol. 2). Centro Nacional de Investigaciones de Café.
+[4] CIMMYT. (2015). *Maize production in the tropics and subtropics*. International Maize and Wheat Improvement Center.
+[5] Moraga, J. (2024). *Guía técnica para el manejo del café en fincas del centro-norte de Nicaragua* [Publicación técnica regional].
+[6] Sadeghian, S. (2009). *Fertilidad del suelo y nutrición del café en Colombia: Guía práctica*. Cenicafé.
+[7] Sadeghian, S. (2018). Interpretación del análisis de suelos para el cultivo de café. *Cenicafé, Avances Técnicos*, (494).
+[8] Sadeghian, S. (2020). Actualización de niveles críticos de nutrientes para café. Cenicafé.
+[9] Salazar-Gutiérrez, M. R., Chaves-Córdoba, B., & Arcila-Pulgarín, J. (1993). Desarrollo del fruto del café. *Cenicafé*, *44*(1), 33–44.
+[10] World Coffee Research. (s. f.). *Variety catalog — Caturra, Bourbon, Catuaí*. https://varieties.worldcoffeeresearch.org
+
+---
+
+## VII. Catálogo Extendido de Fertilizantes
+
+*Ver documento completo: [`informe_fenologia_motor_fertilizacion_cafe.md — Sección 11`](./informe_fenologia_motor_fertilizacion_cafe.md)*
+
+El motor original usa Urea, DAP y KCl como fuentes estándar. La especificación extendida añade las siguientes fuentes para cubrir déficits específicos de S, Ca, Mg y escenarios donde se debe evitar el cloro o el nitrógeno adicional.
+
+### VII.A Fertilizantes químicos adicionales
+
+| Fertilizante | N% | P₂O₅% | K₂O% | S% | Ca% | Mg% | Caso de uso principal |
+|---|---|---|---|---|---|---|---|
+| MAP | 11 | 52 | — | — | — | — | Cobertura alta de P con menor N que DAP |
+| TSP | — | 46 | — | — | 14 | — | Solo P + Ca; sin N |
+| Sulfato de potasio (K₂SO₄) | — | — | 50 | 18 | — | — | K en suelos clorosensibles o con déficit de S |
+| Nitrato de potasio (KNO₃) | 13 | — | 44 | — | — | — | K + N sin fósforo |
+| Sulfato de amonio | 21 | — | — | 24 | — | — | N + S; acidificante útil en pH alto |
+| Nitrato de calcio | 15.5 | — | — | — | 19 | — | N + Ca; no acidifica |
+| Kieserita (MgSO₄·H₂O) | — | — | — | 22 | — | 18 | Déficit de Mg y S |
+| Yeso agrícola (CaSO₄·2H₂O) | — | — | — | 17 | 23 | — | Ca + S sin alterar pH |
+| Cal dolomítica | — | — | — | — | 21 | 12 | Encalado; eleva pH; aporta Ca + Mg |
+
+### VII.B Orden de cálculo ampliado (cascada de 5 pasos)
+
+```
+1. Si pH < 5.0  → calcular cal dolomítica y bloquear N-P-K
+2. D_f(P):       usar DAP o MAP según relación N:P requerida
+3. D_f(N):       descontar N de DAP/MAP; completar con Urea o (NH₄)₂SO₄
+4. D_f(K):       elegir KCl (estándar) o K₂SO₄ (clorosensible / def. S)
+5. D_f(Mg/S):    aplicar kieserita si Mg < 73 mg/kg o S < 5 mg/kg
+```
+
+---
+
+## VIII. Modelo Fenológico del Café
+
+*Ver documento completo: [`informe_fenologia_motor_fertilizacion_cafe.md`](./informe_fenologia_motor_fertilizacion_cafe.md)*
+
+### VIII.A Ciclo de vida del cafeto (etapas por edad en meses)
+
+| Etapa | Edad aproximada | Regla del motor |
+|---|---|---|
+| Vivero inicial | 0–3 meses | No emitir dosis productiva |
+| Vivero avanzado | 4–8 meses | Nutrientes fraccionados; evitar sobredosis |
+| Establecimiento | 9–12 meses | Priorizar humedad y P de arranque |
+| Levante | 13–24 meses | Plan de N; incrementar K y Mg con edad |
+| Transición a producción | 25–36 meses | Separar demanda vegetativa y de fruto |
+| Producción inicial | 37–48 meses | Usar rendimiento objetivo y carga observada |
+| Producción estable | >48 meses | Balance anual; extracción por cosecha |
+
+### VIII.B Fenología reproductiva (estados del fruto)
+
+| Estado | Días desde floración (DAF) | Fracción de demanda N / P / K |
+|---|---|---|
+| Prefloración | <0 | Preparación; nutrición equilibrada |
+| Floración | 0–7 | Crear cohorte; iniciar contador DAF |
+| Cuajado | 8–56 | 15% / 25% / 10% |
+| Expansión rápida | 57–120 | 35% / 30% / 35% |
+| Llenado y endurecimiento | 121–182 | 30% / 25% / 35% |
+| Maduración fisiológica | 183–224 | 20% / 20% / 20% |
+| Ventana tardía (altitud) | 225–252 | Mantener monitoreo |
+
+### VIII.C Ajuste por altitud
+
+| Altitud | Duración floración–madurez |
+|---|---|
+| <1,200 m | 196–210 días (ventana rápida) |
+| 1,200–1,700 m | ≈224 días (ventana base) |
+| >1,700 m | 238–252 días (ventana lenta) |
+
+### VIII.D Regla de bloqueo por cohortes
+
+Una parcela puede tener múltiples cohortes activas simultáneamente (varias fechas de floración). El motor debe calcular la etapa de cada cohorte por separado y **nunca almacenar una única etapa** para toda la parcela.
+
+---
+
+## IX. Rangos de Referencia para Análisis de Laboratorio (Café)
+
+*Ver documento completo con metadatos y guía de implementación: [`parametros_laboratorio_cafe.md`](./parametros_laboratorio_cafe.md)*
+
+### IX.A Macronutrientes y parámetros principales
+
+| Parámetro | Unidad | Bajo | Adecuado | Alto | Confianza |
+|---|---|---|---|---|---|
+| pH | SU | <5.0 | 5.0–5.5 | >6.0 | Alta |
+| Conductividad eléctrica | dS/m | — | <1.0 | >1.1 (riesgo) | Media |
+| Materia orgánica | % | <8 | 8–16 | >16 | Alta |
+| Nitrógeno total | mg/kg | <3,400 | 3,400–5,800 | >5,800 | Alta |
+| Fósforo disponible | mg/kg | <8 | 8–30 | >30 | Alta |
+| Calcio intercambiable | mg/kg | <301 | 301–601 | >601 | Alta |
+| Magnesio intercambiable | mg/kg | <73 | 73–109 | >109 | Alta |
+| Potasio intercambiable | mg/kg | <78 | 78–156 | >156 | Alta |
+| Azufre disponible | mg/kg | <5 | 5–15 | >15 | Media |
+| CIC | cmol(+)/kg | <10 | 15–30 | — | Media |
+| Saturación de bases | % | <50 | >60 | — | Media |
+
+### IX.B Micronutrientes (extracción DTPA / agua caliente)
+
+| Nutriente | Bajo | Adecuado | Alto | Método |
+|---|---|---|---|---|
+| Zinc (Zn) | <1.0 mg/kg | 1.5–3.0 mg/kg | >5.0 mg/kg | DTPA |
+| Hierro (Fe) | <5 mg/kg | >10 mg/kg | >50 mg/kg | DTPA |
+| Manganeso (Mn) | <1 mg/kg | 2–5 mg/kg | >10 mg/kg | DTPA |
+| Cobre (Cu) | <0.2 mg/kg | 0.5–1.5 mg/kg | >3.0 mg/kg | DTPA |
+| Boro (B) | <0.3 mg/kg | 0.5–1.0 mg/kg | >2.0 mg/kg | Agua caliente |
+
+> [!IMPORTANT]
+> Los métodos de extracción **no son intercambiables**. Agrifos debe almacenar el método junto a cada resultado y mostrar el umbral correspondiente al método usado. Si el método es desconocido, etiquetar el resultado como "referencia orientativa".
