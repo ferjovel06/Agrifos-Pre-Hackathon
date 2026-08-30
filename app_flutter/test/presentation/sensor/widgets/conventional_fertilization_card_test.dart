@@ -12,6 +12,7 @@ void main() {
       products: [
         FertilizerProductDose(
           product: 'Urea',
+          guaranteedAnalysis: {'N': 46},
           kgPerHectare: 93.8,
           kgPerManzana: 66.1,
           gramsPerPlant: 0.60,
@@ -19,6 +20,7 @@ void main() {
         ),
         FertilizerProductDose(
           product: 'DAP',
+          guaranteedAnalysis: {'N': 18, 'P2O5': 46},
           kgPerHectare: 42,
           kgPerManzana: 29.6,
           gramsPerPlant: 0.27,
@@ -26,6 +28,7 @@ void main() {
         ),
         FertilizerProductDose(
           product: 'KCl',
+          guaranteedAnalysis: {'K2O': 60},
           kgPerHectare: 80.5,
           kgPerManzana: 56.7,
           gramsPerPlant: 0.52,
@@ -36,9 +39,7 @@ void main() {
 
     await tester.pumpWidget(
       const MaterialApp(
-        home: Scaffold(
-          body: ConventionalFertilizationCard(scenario: scenario),
-        ),
+        home: Scaffold(body: ConventionalFertilizationCard(scenario: scenario)),
       ),
     );
 
@@ -58,9 +59,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       const MaterialApp(
-        home: Scaffold(
-          body: ConventionalFertilizationCard(scenario: null),
-        ),
+        home: Scaffold(body: ConventionalFertilizationCard(scenario: null)),
       ),
     );
 

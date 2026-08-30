@@ -7,6 +7,23 @@ class FertilizationRepository {
 
   final ApiClient _client;
 
+  Future<FertilizationRecommendation> createFromLabAnalysis({
+    required String parcelId,
+    required String labAnalysisId,
+    required double targetYield,
+    required String yieldUnit,
+    required String fruitStage,
+  }) async {
+    final response = await _client.post('/fertilization/recommendations', {
+      'parcel_id': parcelId,
+      'lab_analysis_id': labAnalysisId,
+      'target_yield': targetYield,
+      'yield_unit': yieldUnit,
+      'fruit_stage': fruitStage,
+    });
+    return FertilizationRecommendation.fromJson(response);
+  }
+
   Future<FertilizationRecommendation> createRecommendation({
     required String parcelId,
     required double targetYield,
@@ -21,22 +38,22 @@ class FertilizationRepository {
     double? ph,
     double? electricalConductivity,
   }) async {
+    final soil = <String, dynamic>{
+      'source': soilSource,
+      'nitrogen': nitrogenStatus,
+      'phosphorus': phosphorusStatus,
+      'potassium': potassiumStatus,
+      'phosphorus_method': phosphorusMethod,
+      'potassium_method': potassiumMethod,
+      'ph': ph,
+      'ec_ds_m': electricalConductivity,
+    }..removeWhere((_, value) => value == null);
     final response = await _client.post('/fertilization/recommendations', {
       'parcel_id': parcelId,
       'target_yield': targetYield,
       'yield_unit': yieldUnit,
       'fruit_stage': fruitStage,
-      'soil': {
-        'source': soilSource,
-        'nitrogen': nitrogenStatus,
-        'phosphorus': phosphorusStatus,
-        'potassium': potassiumStatus,
-        if (phosphorusMethod != null)
-          'phosphorus_method': phosphorusMethod,
-        if (potassiumMethod != null) 'potassium_method': potassiumMethod,
-        if (ph != null) 'ph': ph,
-        if (electricalConductivity != null) 'ec_ds_m': electricalConductivity,
-      },
+      'soil': soil,
     });
     return FertilizationRecommendation.fromJson(response);
   }

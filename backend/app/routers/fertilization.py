@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import has_global_read_access, require_write_access
 from app.db.session import get_db
 from app.models import User
+from app.repositories import lab_analysis as lab_analysis_repo
 from app.repositories import parcel as parcel_repo
 from app.repositories.agronomic_reference import (
     AgronomicReferenceNotFoundError,
@@ -18,6 +19,7 @@ from app.schemas.fertilization import (
 from app.services.fertilization_service import (
     FertilizationInputError,
     calculate_fertilization_recommendation,
+    soil_assessment_from_lab_analysis,
 )
 from app.services.agronomic_config import IncompleteAgronomicConfigError
 
@@ -69,8 +71,30 @@ async def create_recommendation(
 
     try:
         config = await get_active_engine_config(db, parcel.crop_id)
+        resolved_payload = payload
+        if payload.lab_analysis_id is not None:
+            analysis = await lab_analysis_repo.get_lab_analysis(
+                db,
+                payload.lab_analysis_id,
+            )
+            if analysis is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Laboratory analysis not found.",
+                )
+            if analysis.parcel_id != parcel.id:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="The laboratory analysis does not belong to the parcel.",
+                )
+            resolved_payload = payload.model_copy(
+                update={
+                    "soil": soil_assessment_from_lab_analysis(analysis, config),
+                    "lab_analysis_id": None,
+                }
+            )
         return calculate_fertilization_recommendation(
-            payload,
+            resolved_payload,
             config=config,
             crop_id=parcel.crop_id,
             variety_id=parcel.variety.id,
