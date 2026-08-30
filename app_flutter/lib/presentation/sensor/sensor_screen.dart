@@ -46,6 +46,8 @@ class _SensorScreenState extends State<SensorScreen> {
   bool _isLoadingFertilization = false;
   FertilizationRecommendation? _fertilizationRecommendation;
   String? _fertilizationError;
+  String _targetYieldText = '20';
+  String? _targetYieldError;
   List<LabAnalysis> _labAnalyses = const [];
   bool _isLoadingLabAnalyses = false;
   String? _labAnalysesError;
@@ -183,6 +185,15 @@ class _SensorScreenState extends State<SensorScreen> {
     Parcel parcel,
     LabAnalysis analysis,
   ) async {
+    final targetYield = _usesExpectedYield ? _targetYieldValue : null;
+    if (_usesExpectedYield && targetYield == null) {
+      setState(() {
+        _isLoadingFertilization = false;
+        _fertilizationRecommendation = null;
+        _targetYieldError = 'Ingresa un rendimiento mayor que cero.';
+      });
+      return;
+    }
     if ((analysis.phosphorusMethod?.trim().isEmpty ?? true) ||
         (analysis.potassiumMethod?.trim().isEmpty ?? true)) {
       setState(() {
@@ -203,7 +214,7 @@ class _SensorScreenState extends State<SensorScreen> {
           .createFromLabAnalysis(
             parcelId: parcel.id,
             labAnalysisId: analysis.id,
-            targetYield: 20,
+            targetYield: targetYield,
             yieldUnit: 'qq_gold_ha',
             fruitStage: _fruitStageFor(_stageName),
           );
@@ -211,6 +222,11 @@ class _SensorScreenState extends State<SensorScreen> {
       setState(() {
         _fertilizationRecommendation = recommendation;
         _isLoadingFertilization = false;
+        _fertilizationError =
+            recommendation.scenarios.isEmpty &&
+                recommendation.warnings.isNotEmpty
+            ? recommendation.warnings.join(' ')
+            : null;
       });
     } on ApiAuthException catch (error) {
       if (!mounted) return;
@@ -329,6 +345,15 @@ class _SensorScreenState extends State<SensorScreen> {
     required SensorReading reading,
     required SensorDiagnostic diagnosis,
   }) async {
+    final targetYield = _usesExpectedYield ? _targetYieldValue : null;
+    if (_usesExpectedYield && targetYield == null) {
+      setState(() {
+        _isLoadingFertilization = false;
+        _fertilizationRecommendation = null;
+        _targetYieldError = 'Ingresa un rendimiento mayor que cero.';
+      });
+      return;
+    }
     setState(() {
       _isLoadingFertilization = true;
       _fertilizationRecommendation = null;
@@ -339,7 +364,7 @@ class _SensorScreenState extends State<SensorScreen> {
       final recommendation = await _fertilizationRepository
           .createRecommendation(
             parcelId: parcel.id,
-            targetYield: 20,
+            targetYield: targetYield,
             yieldUnit: 'qq_gold_ha',
             fruitStage: _fruitStageFor(_stageName),
             soilSource: 'sensor',
@@ -359,6 +384,11 @@ class _SensorScreenState extends State<SensorScreen> {
       setState(() {
         _fertilizationRecommendation = recommendation;
         _isLoadingFertilization = false;
+        _fertilizationError =
+            recommendation.scenarios.isEmpty &&
+                recommendation.warnings.isNotEmpty
+            ? recommendation.warnings.join(' ')
+            : null;
       });
     } on ApiAuthException catch (error) {
       if (!mounted) return;
@@ -404,6 +434,59 @@ class _SensorScreenState extends State<SensorScreen> {
           'este cultivo.';
     }
     return message;
+  }
+
+  double? get _targetYieldValue {
+    final value = double.tryParse(_targetYieldText.replaceAll(',', '.'));
+    return value != null && value > 0 ? value : null;
+  }
+
+  bool get _usesExpectedYield {
+    final parcel = _parcel;
+    return parcel != null && _ageInMonths(parcel.plantingDate) >= 37;
+  }
+
+  void _onTargetYieldChanged(String value) {
+    final parsed = double.tryParse(value.replaceAll(',', '.'));
+    final isValid = parsed != null && parsed > 0;
+    setState(() {
+      _targetYieldText = value;
+      _targetYieldError = isValid
+          ? null
+          : 'Ingresa un rendimiento mayor que cero.';
+      _fertilizationRecommendation = null;
+      _fertilizationError = isValid
+          ? 'Confirma el rendimiento para actualizar la recomendación.'
+          : null;
+    });
+  }
+
+  Future<void> _onTargetYieldSubmitted(String value) async {
+    _onTargetYieldChanged(value);
+    if (_targetYieldValue == null) return;
+    final parcel = _parcel;
+    if (parcel != null && _labAnalyses.isNotEmpty) {
+      await _requestLabRecommendation(parcel, _labAnalyses.first);
+    }
+  }
+
+  Future<void> _recalculateWithExpectedYield() async {
+    if (_targetYieldValue == null) {
+      setState(() {
+        _targetYieldError = 'Ingresa un rendimiento mayor que cero.';
+      });
+      return;
+    }
+    final parcel = _parcel;
+    if (parcel == null) return;
+    if (_labAnalyses.isNotEmpty) {
+      await _requestLabRecommendation(parcel, _labAnalyses.first);
+      return;
+    }
+    setState(() {
+      _fertilizationError =
+          'Guarda un análisis de laboratorio o captura una muestra del sensor.';
+    });
   }
 
   String _nutrientStatus(SoilDiagnosticLevel? level) {
@@ -466,6 +549,14 @@ class _SensorScreenState extends State<SensorScreen> {
             stageName: _stageName!,
             ageMonths: _ageInMonths(parcel.plantingDate),
             plantsPerHectare: parcel.plantsPerHectare,
+            targetYield: _targetYieldText,
+            targetYieldError: _targetYieldError,
+            onTargetYieldChanged: _onTargetYieldChanged,
+            onTargetYieldSubmitted: _onTargetYieldSubmitted,
+            onRecalculate: _targetYieldValue == null
+                ? null
+                : _recalculateWithExpectedYield,
+            isRecalculating: _isLoadingFertilization,
           ),
           if (_stageTemplates.isNotEmpty) ...[
             const SizedBox(height: 16),

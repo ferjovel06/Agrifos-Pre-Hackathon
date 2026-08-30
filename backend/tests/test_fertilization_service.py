@@ -44,7 +44,7 @@ def make_request(**overrides):
     return FertilizationRecommendationRequest(**values)
 
 
-def calculate(request, *, plant_age_months=32):
+def calculate(request, *, plant_age_months=40):
     return calculate_fertilization_recommendation(
         request,
         config=CONFIG,
@@ -59,6 +59,30 @@ def calculate(request, *, plant_age_months=32):
 
 
 class FertilizationServiceTests(unittest.TestCase):
+    def test_returns_advisories_for_non_production_age_bands(self):
+        request = make_request(target_yield=None)
+
+        nursery = calculate(request, plant_age_months=8)
+        establishment = calculate(request, plant_age_months=10)
+        transition = calculate(request, plant_age_months=30)
+
+        self.assertEqual(nursery.recommendation_status, "nursery_advisory")
+        self.assertEqual(
+            establishment.recommendation_status,
+            "establishment_advisory",
+        )
+        self.assertEqual(
+            transition.recommendation_status,
+            "productive_transition_advisory",
+        )
+        self.assertFalse(nursery.fertilizer_scenarios)
+        self.assertFalse(establishment.fertilizer_scenarios)
+        self.assertFalse(transition.fertilizer_scenarios)
+
+    def test_requires_target_yield_from_initial_production(self):
+        with self.assertRaises(FertilizationInputError):
+            calculate(make_request(target_yield=None), plant_age_months=37)
+
     def test_classifies_stored_lab_values_with_database_ranges(self):
         assessment = soil_assessment_from_lab_analysis(
             SimpleNamespace(
