@@ -70,7 +70,7 @@ class SoilAssessmentInput(BaseModel):
 
 class FertilizationRecommendationRequest(BaseModel):
     parcel_id: uuid.UUID
-    target_yield: float = Field(gt=0)
+    target_yield: float | None = Field(default=None, gt=0)
     yield_unit: YieldUnit
     fruit_stage: FruitStage
     soil: SoilAssessmentInput | None = None

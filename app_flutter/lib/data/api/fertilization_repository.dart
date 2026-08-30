@@ -10,23 +10,24 @@ class FertilizationRepository {
   Future<FertilizationRecommendation> createFromLabAnalysis({
     required String parcelId,
     required String labAnalysisId,
-    required double targetYield,
+    double? targetYield,
     required String yieldUnit,
     required String fruitStage,
   }) async {
-    final response = await _client.post('/fertilization/recommendations', {
+    final body = <String, dynamic>{
       'parcel_id': parcelId,
       'lab_analysis_id': labAnalysisId,
       'target_yield': targetYield,
       'yield_unit': yieldUnit,
       'fruit_stage': fruitStage,
-    });
+    }..removeWhere((_, value) => value == null);
+    final response = await _client.post('/fertilization/recommendations', body);
     return FertilizationRecommendation.fromJson(response);
   }
 
   Future<FertilizationRecommendation> createRecommendation({
     required String parcelId,
-    required double targetYield,
+    double? targetYield,
     required String yieldUnit,
     required String fruitStage,
     required String soilSource,
@@ -48,13 +49,14 @@ class FertilizationRepository {
       'ph': ph,
       'ec_ds_m': electricalConductivity,
     }..removeWhere((_, value) => value == null);
-    final response = await _client.post('/fertilization/recommendations', {
+    final body = <String, dynamic>{
       'parcel_id': parcelId,
       'target_yield': targetYield,
       'yield_unit': yieldUnit,
       'fruit_stage': fruitStage,
       'soil': soil,
-    });
+    }..removeWhere((_, value) => value == null);
+    final response = await _client.post('/fertilization/recommendations', body);
     return FertilizationRecommendation.fromJson(response);
   }
 }

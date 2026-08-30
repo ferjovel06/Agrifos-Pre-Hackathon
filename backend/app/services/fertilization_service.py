@@ -100,6 +100,10 @@ def _target_green_kg_ha(
     request: FertilizationRecommendationRequest,
     config: AgronomicEngineConfig,
 ) -> float:
+    if request.target_yield is None:
+        raise FertilizationInputError(
+            "Target yield is required for parcels in production."
+        )
     if request.yield_unit == YieldUnit.KG_GREEN_HA:
         return request.target_yield
     if request.yield_unit == YieldUnit.QQ_GOLD_HA:
@@ -108,6 +112,40 @@ def _target_green_kg_ha(
         request.target_yield
         * config.parameters["kg_per_qq_gold"]
         / config.parameters["cherry_to_green_factor"]
+    )
+
+
+def _advisory_response(
+    request: FertilizationRecommendationRequest,
+    *,
+    crop_name: str,
+    variety_name: str,
+    plant_age_months: int,
+    life_stage: LifeStage,
+    status: str,
+    warnings: list[str],
+    config: AgronomicEngineConfig,
+) -> FertilizationRecommendationRead:
+    return FertilizationRecommendationRead(
+        parcel_id=request.parcel_id,
+        crop=crop_name,
+        variety=variety_name,
+        plant_age_months=plant_age_months,
+        life_stage=life_stage,
+        fruit_stage=request.fruit_stage,
+        target_green_kg_ha=0,
+        engine_version=ENGINE_VERSION,
+        recommendation_status=status,
+        nutrient_requirements=[],
+        fertilizer_scenarios=[],
+        limiting_nutrients=[],
+        warnings=warnings,
+        assumptions=[
+            (
+                f"Referencia: {config.reference_key} v{config.reference_version}; "
+                f"fuente: {config.reference_source}."
+            )
+        ],
     )
 
 
@@ -483,7 +521,37 @@ def calculate_fertilization_recommendation(
             "Electrical conductivity is too high for an automatic fertilizer plan."
         )
 
-    if plant_age_months < 25:
+    if plant_age_months <= 8:
+        return _advisory_response(
+            request,
+            crop_name=crop_name,
+            variety_name=variety_name,
+            plant_age_months=plant_age_months,
+            life_stage=life_stage,
+            status="nursery_advisory",
+            warnings=[
+                "La etapa de vivero requiere manejo de sustrato, riego y salinidad.",
+                "No se emite una dosis productiva de campo para esta edad.",
+            ],
+            config=config,
+        )
+
+    if plant_age_months <= 12:
+        return _advisory_response(
+            request,
+            crop_name=crop_name,
+            variety_name=variety_name,
+            plant_age_months=plant_age_months,
+            life_stage=life_stage,
+            status="establishment_advisory",
+            warnings=[
+                "La etapa de establecimiento prioriza humedad y fósforo de arranque.",
+                "No se emite una dosis automática sin un modelo calibrado de establecimiento.",
+            ],
+            config=config,
+        )
+
+    if plant_age_months <= 24:
         young_scenario, nutrient_rows = _young_crop_scenario(
             request,
             config,
@@ -532,6 +600,21 @@ def calculate_fertilization_recommendation(
                     f"fuente: {config.reference_source}."
                 ),
             ],
+        )
+
+    if plant_age_months <= 36:
+        return _advisory_response(
+            request,
+            crop_name=crop_name,
+            variety_name=variety_name,
+            plant_age_months=plant_age_months,
+            life_stage=life_stage,
+            status="productive_transition_advisory",
+            warnings=[
+                "La transición productiva requiere separar la demanda vegetativa de la demanda del fruto.",
+                "No se aplica el balance de producción madura hasta contar con carga observada y un modelo de transición calibrado.",
+            ],
+            config=config,
         )
 
     target_green_kg_ha = _target_green_kg_ha(request, config)
