@@ -7,6 +7,10 @@ from app.core.auth import has_global_read_access, require_write_access
 from app.db.session import get_db
 from app.models import User
 from app.repositories import parcel as parcel_repo
+from app.repositories.agronomic_reference import (
+    AgronomicReferenceNotFoundError,
+    get_active_engine_config,
+)
 from app.schemas.fertilization import (
     FertilizationRecommendationRead,
     FertilizationRecommendationRequest,
@@ -15,6 +19,7 @@ from app.services.fertilization_service import (
     FertilizationInputError,
     calculate_fertilization_recommendation,
 )
+from app.services.agronomic_config import IncompleteAgronomicConfigError
 
 
 router = APIRouter(prefix="/fertilization", tags=["fertilization"])
@@ -63,8 +68,12 @@ async def create_recommendation(
         )
 
     try:
+        config = await get_active_engine_config(db, parcel.crop_id)
         return calculate_fertilization_recommendation(
             payload,
+            config=config,
+            crop_id=parcel.crop_id,
+            variety_id=parcel.variety.id,
             crop_name=parcel.crop.name,
             variety_name=parcel.variety.name,
             plant_age_months=_age_in_months(parcel.planting_date, date.today()),
@@ -74,5 +83,10 @@ async def create_recommendation(
     except FertilizationInputError as error:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(error),
+        ) from error
+    except (AgronomicReferenceNotFoundError, IncompleteAgronomicConfigError) as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(error),
         ) from error

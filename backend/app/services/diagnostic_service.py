@@ -1,4 +1,3 @@
-import unicodedata
 from collections.abc import Mapping
 from typing import Any
 
@@ -7,23 +6,18 @@ from app.schemas.diagnostic import (
     DiagnosticRangeRead,
     SensorContextRead,
     SensorDiagnosticRead,
-)
-from app.services.soil_reference_ranges import (
-    READING_FIELD_MAP,
-    SOIL_REFERENCE_RANGES,
     SoilLevel,
-    classify,
 )
+from app.services.agronomic_config import AgronomicEngineConfig, SoilRangeConfig
 
 
 ENGINE_VERSION = "sensor-diagnostic-1.0.0"
-REFERENCE_SOURCE = "Parametros_laboratorio_cafe_APA7"
-
-_SUPPORTED_COFFEE_NAMES = {
-    "cafe",
-    "cafe arabica",
-    "coffea arabica",
-    "coffee",
+_READING_FIELD_MAP = {
+    "nitrogen": "nitrate_n",
+    "phosphorus": "phosphate_p",
+    "potassium": "potassium",
+    "ec": "ec",
+    "ph": "ph",
 }
 
 _LEVEL_MESSAGES: Mapping[SoilLevel, str] = {
@@ -40,24 +34,8 @@ _NUTRIENT_NAMES = {
 }
 
 
-class UnsupportedDiagnosticCropError(ValueError):
-    pass
-
-
 class InvalidDiagnosticReadingError(ValueError):
     pass
-
-
-def _normalize_crop_name(name: str) -> str:
-    normalized = unicodedata.normalize("NFKD", name.strip().lower())
-    return "".join(char for char in normalized if not unicodedata.combining(char))
-
-
-def ensure_supported_crop(crop_name: str) -> None:
-    if _normalize_crop_name(crop_name) not in _SUPPORTED_COFFEE_NAMES:
-        raise UnsupportedDiagnosticCropError(
-            f"Sensor diagnosis is not configured for crop '{crop_name}'."
-        )
 
 
 def _validate_reading(reading: Any) -> None:
@@ -96,14 +74,29 @@ def _parameter_warnings(parameter: str, level: SoilLevel) -> list[str]:
     return warnings
 
 
-def diagnose_sensor_reading(reading: Any, crop_name: str) -> SensorDiagnosticRead:
+def _classify(reference: SoilRangeConfig, value: float) -> SoilLevel:
+    if reference.deficient_below is not None and value < reference.deficient_below:
+        return SoilLevel.DEFICIENT
+    if reference.critical_above is not None and value >= reference.critical_above:
+        return SoilLevel.CRITICAL
+    if reference.optimal_max is not None and value > reference.optimal_max:
+        return SoilLevel.HIGH
+    if reference.optimal_min is not None and value < reference.optimal_min:
+        return SoilLevel.DEFICIENT
+    return SoilLevel.OPTIMAL
+
+
+def diagnose_sensor_reading(
+    reading: Any,
+    crop_name: str,
+    config: AgronomicEngineConfig,
+) -> SensorDiagnosticRead:
     """Classify a seven-in-one sensor reading using coffee reference ranges.
 
     Sensor results are intentionally preliminary. They never produce fertilizer
     or liming doses and remain low-confidence until calibration, repeatability,
     and laboratory-comparison data are available.
     """
-    ensure_supported_crop(crop_name)
     _validate_reading(reading)
 
     parameters: list[DiagnosticParameterRead] = []
@@ -114,10 +107,10 @@ def diagnose_sensor_reading(reading: Any, crop_name: str) -> SensorDiagnosticRea
         "con esta lectura.",
     ]
 
-    for field, parameter_id in READING_FIELD_MAP.items():
+    for field, parameter_id in _READING_FIELD_MAP.items():
         value = float(getattr(reading, field))
-        reference = SOIL_REFERENCE_RANGES[parameter_id]
-        level = classify(parameter_id, value)
+        reference = config.soil_ranges[parameter_id]
+        level = _classify(reference, value)
         parameters.append(
             DiagnosticParameterRead(
                 parameter=field,
@@ -144,7 +137,10 @@ def diagnose_sensor_reading(reading: Any, crop_name: str) -> SensorDiagnosticRea
         recorded_at=reading.recorded_at,
         crop=crop_name,
         engine_version=ENGINE_VERSION,
-        reference_source=REFERENCE_SOURCE,
+        reference_source=(
+            f"{config.reference_source} ({config.reference_key} "
+            f"v{config.reference_version})"
+        ),
         context=SensorContextRead(
             temperature_c=float(reading.temperature),
             humidity_pct=float(reading.humidity),

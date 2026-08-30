@@ -68,26 +68,12 @@ class SoilAssessmentInput(BaseModel):
         return self
 
 
-class FertilizationParametersInput(BaseModel):
-    maintenance_factor: float = Field(default=0.25, ge=0.10, le=0.35)
-    nitrogen_efficiency: float = Field(default=0.50, ge=0.40, le=0.60)
-    phosphorus_efficiency: float = Field(default=0.30, ge=0.20, le=0.40)
-    potassium_efficiency: float = Field(default=0.55, ge=0.40, le=0.70)
-    max_n_kg_ha_per_application: float = Field(default=40, ge=20, le=60)
-    kg_per_qq_gold: float = Field(default=46, ge=45.36, le=46)
-    cherry_to_green_factor: float = Field(default=5.0, ge=4.5, le=6.0)
-    hectares_per_manzana: float = Field(default=0.7042, gt=0)
-
-
 class FertilizationRecommendationRequest(BaseModel):
     parcel_id: uuid.UUID
     target_yield: float = Field(gt=0)
     yield_unit: YieldUnit
     fruit_stage: FruitStage
     soil: SoilAssessmentInput
-    parameters: FertilizationParametersInput = Field(
-        default_factory=FertilizationParametersInput
-    )
 
 
 class NutrientRequirementRead(BaseModel):
