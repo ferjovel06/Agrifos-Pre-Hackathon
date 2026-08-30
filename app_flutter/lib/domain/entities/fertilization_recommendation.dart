@@ -1,6 +1,7 @@
 class FertilizerProductDose {
   const FertilizerProductDose({
     required this.product,
+    required this.guaranteedAnalysis,
     required this.kgPerHectare,
     required this.kgPerManzana,
     required this.gramsPerPlant,
@@ -8,6 +9,7 @@ class FertilizerProductDose {
   });
 
   final String product;
+  final Map<String, double> guaranteedAnalysis;
   final double kgPerHectare;
   final double kgPerManzana;
   final double gramsPerPlant;
@@ -15,8 +17,12 @@ class FertilizerProductDose {
 
   factory FertilizerProductDose.fromJson(Map<String, dynamic> json) {
     final contributions = json['nutrient_contributions_kg_ha'] as Map;
+    final analysis = json['guaranteed_analysis_pct'] as Map;
     return FertilizerProductDose(
       product: json['product'] as String,
+      guaranteedAnalysis: analysis.map(
+        (key, value) => MapEntry(key.toString(), (value as num).toDouble()),
+      ),
       kgPerHectare: (json['kg_ha'] as num).toDouble(),
       kgPerManzana: (json['kg_manzana'] as num).toDouble(),
       gramsPerPlant: (json['g_plant'] as num).toDouble(),
@@ -27,26 +33,20 @@ class FertilizerProductDose {
   }
 
   String get displayName {
-    switch (product.toLowerCase()) {
-      case 'urea':
-        return 'Urea (46-0-0)';
-      case 'dap':
-        return 'DAP (18-46-0)';
-      case 'kcl':
-        return 'KCl (0-0-60)';
-      case 'sulfato de potasio':
-        return 'Sulfato de potasio (0-0-50)';
-      default:
-        return product;
-    }
+    final n = guaranteedAnalysis['N'] ?? 0;
+    final p = guaranteedAnalysis['P2O5'] ?? 0;
+    final k = guaranteedAnalysis['K2O'] ?? 0;
+    final grade = '${_grade(n)}-${_grade(p)}-${_grade(k)}';
+    return '$product ($grade)';
   }
+
+  static String _grade(double value) => value == value.roundToDouble()
+      ? value.toInt().toString()
+      : value.toStringAsFixed(1);
 }
 
 class FertilizerScenario {
-  const FertilizerScenario({
-    required this.name,
-    required this.products,
-  });
+  const FertilizerScenario({required this.name, required this.products});
 
   final String name;
   final List<FertilizerProductDose> products;
@@ -56,9 +56,8 @@ class FertilizerScenario {
       name: json['name'] as String,
       products: (json['products'] as List<dynamic>)
           .map(
-            (item) => FertilizerProductDose.fromJson(
-              item as Map<String, dynamic>,
-            ),
+            (item) =>
+                FertilizerProductDose.fromJson(item as Map<String, dynamic>),
           )
           .toList(growable: false),
     );
@@ -97,9 +96,7 @@ class FertilizationRecommendation {
       status: json['recommendation_status'] as String,
       scenarios: (json['fertilizer_scenarios'] as List<dynamic>)
           .map(
-            (item) => FertilizerScenario.fromJson(
-              item as Map<String, dynamic>,
-            ),
+            (item) => FertilizerScenario.fromJson(item as Map<String, dynamic>),
           )
           .toList(growable: false),
       warnings: (json['warnings'] as List<dynamic>).cast<String>(),

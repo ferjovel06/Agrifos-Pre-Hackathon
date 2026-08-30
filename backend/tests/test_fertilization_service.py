@@ -1,5 +1,6 @@
 import unittest
 import uuid
+from types import SimpleNamespace
 
 from pydantic import ValidationError
 
@@ -14,6 +15,7 @@ from app.schemas.fertilization import (
 from app.services.fertilization_service import (
     FertilizationInputError,
     calculate_fertilization_recommendation,
+    soil_assessment_from_lab_analysis,
 )
 from tests.agronomic_config_factory import CROP_ID, VARIETY_ID, make_engine_config
 
@@ -57,6 +59,40 @@ def calculate(request, *, plant_age_months=32):
 
 
 class FertilizationServiceTests(unittest.TestCase):
+    def test_classifies_stored_lab_values_with_database_ranges(self):
+        assessment = soil_assessment_from_lab_analysis(
+            SimpleNamespace(
+                nitrogen=3000,
+                phosphorus=15,
+                potassium=200,
+                phosphorus_method="Bray II",
+                potassium_method="Ammonium acetate",
+                ph=5.2,
+                ec=0.5,
+            ),
+            CONFIG,
+        )
+
+        self.assertEqual(assessment.nitrogen, NutrientStatus.DEFICIENT)
+        self.assertEqual(assessment.phosphorus, NutrientStatus.ADEQUATE)
+        self.assertEqual(assessment.potassium, NutrientStatus.HIGH)
+
+    def test_request_requires_one_soil_source(self):
+        base = {
+            "parcel_id": uuid.uuid4(),
+            "target_yield": 20,
+            "yield_unit": YieldUnit.QQ_GOLD_HA,
+            "fruit_stage": FruitStage.EXPANSION,
+        }
+        with self.assertRaises(ValidationError):
+            FertilizationRecommendationRequest(**base)
+        with self.assertRaises(ValidationError):
+            FertilizationRecommendationRequest(
+                **base,
+                soil=make_request().soil,
+                lab_analysis_id=uuid.uuid4(),
+            )
+
     def test_uses_the_documented_levante_plan_before_25_months(self):
         request = make_request(
             soil=SoilAssessmentInput(
@@ -138,6 +174,10 @@ class FertilizationServiceTests(unittest.TestCase):
                     "Urea": 145.21,
                 },
             ],
+        )
+        self.assertEqual(
+            result.fertilizer_scenarios[0].products[0].guaranteed_analysis_pct,
+            {"N": 18.0, "P2O5": 46.0},
         )
 
     def test_converts_every_product_to_manzanas_and_grams_per_plant(self):

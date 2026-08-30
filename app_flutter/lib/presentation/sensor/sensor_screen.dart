@@ -11,7 +11,6 @@ import '../../domain/entities/lab_analysis.dart';
 import '../../domain/entities/parcel.dart';
 import '../../domain/entities/phenological_stage.dart';
 import '../../domain/entities/sensor_diagnostic.dart';
-import '../../domain/reference/soil_reference_ranges.dart';
 import '../farm/farm_provider.dart';
 import '../home/latest_reading_provider.dart';
 import '../lab_analysis/lab_analysis_screen.dart';
@@ -201,28 +200,12 @@ class _SensorScreenState extends State<SensorScreen> {
     });
     try {
       final recommendation = await _fertilizationRepository
-          .createRecommendation(
+          .createFromLabAnalysis(
             parcelId: parcel.id,
+            labAnalysisId: analysis.id,
             targetYield: 20,
             yieldUnit: 'qq_gold_ha',
             fruitStage: _fruitStageFor(_stageName),
-            soilSource: 'laboratory',
-            nitrogenStatus: _labNutrientStatus(
-              SoilParameterId.nitrogenTotal,
-              analysis.nitrogen,
-            ),
-            phosphorusStatus: _labNutrientStatus(
-              SoilParameterId.phosphateP,
-              analysis.phosphorus,
-            ),
-            potassiumStatus: _labNutrientStatus(
-              SoilParameterId.potassium,
-              analysis.potassium,
-            ),
-            phosphorusMethod: analysis.phosphorusMethod,
-            potassiumMethod: analysis.potassiumMethod,
-            ph: analysis.ph,
-            electricalConductivity: analysis.ec,
           );
       if (!mounted || _parcel?.id != parcel.id) return;
       setState(() {
@@ -248,18 +231,6 @@ class _SensorScreenState extends State<SensorScreen> {
         _fertilizationError =
             'No se pudo generar la sugerencia con el análisis de laboratorio.';
       });
-    }
-  }
-
-  String _labNutrientStatus(SoilParameterId parameter, double value) {
-    switch (classifySoilParameter(parameter, value)) {
-      case SoilLevel.deficient:
-        return 'deficient';
-      case SoilLevel.optimal:
-        return 'adequate';
-      case SoilLevel.high:
-      case SoilLevel.critical:
-        return 'high';
     }
   }
 

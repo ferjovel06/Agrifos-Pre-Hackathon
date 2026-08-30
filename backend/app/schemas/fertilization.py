@@ -73,7 +73,16 @@ class FertilizationRecommendationRequest(BaseModel):
     target_yield: float = Field(gt=0)
     yield_unit: YieldUnit
     fruit_stage: FruitStage
-    soil: SoilAssessmentInput
+    soil: SoilAssessmentInput | None = None
+    lab_analysis_id: uuid.UUID | None = None
+
+    @model_validator(mode="after")
+    def require_exactly_one_soil_source(self):
+        if (self.soil is None) == (self.lab_analysis_id is None):
+            raise ValueError(
+                "Provide exactly one of soil or lab_analysis_id."
+            )
+        return self
 
 
 class NutrientRequirementRead(BaseModel):
@@ -88,6 +97,7 @@ class NutrientRequirementRead(BaseModel):
 
 class ProductDoseRead(BaseModel):
     product: str
+    guaranteed_analysis_pct: dict[str, float]
     kg_ha: float
     kg_manzana: float
     g_plant: float

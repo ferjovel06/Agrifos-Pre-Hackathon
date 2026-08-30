@@ -17,6 +17,7 @@ VARIETY_ID = uuid.UUID("49232aed-2411-4a82-b13a-54d81f8a6624")
 def make_engine_config() -> AgronomicEngineConfig:
     soil_values = {
         "nitrate_n": ("Nitrógeno", "mg/kg", 10, 10, 30, None),
+        "nitrogen_total": ("Nitrógeno total", "mg/kg", 3400, 3400, 5800, None),
         "phosphate_p": ("Fósforo", "mg/kg", 10, 10, 20, None),
         "potassium": ("Potasio", "mg/kg", 78, 78, 156, None),
         "ec": ("Conductividad eléctrica", "dS/m", 0.1, 0.1, 0.8, 1.1),

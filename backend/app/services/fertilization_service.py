@@ -1,6 +1,7 @@
 import math
 import uuid
 
+from app.models import LabAnalysis
 from app.schemas.fertilization import (
     ApplicationRead,
     FertilizationRecommendationRead,
@@ -11,6 +12,7 @@ from app.schemas.fertilization import (
     NutrientRequirementRead,
     NutrientStatus,
     ProductDoseRead,
+    SoilAssessmentInput,
     SoilSource,
     YieldUnit,
 )
@@ -25,6 +27,57 @@ RECOMMENDATION_STATUS = "decision_support"
 
 class FertilizationInputError(ValueError):
     pass
+
+
+def _status_from_reference(
+    value: float,
+    *,
+    deficient_below: float | None,
+    optimal_min: float | None,
+    optimal_max: float | None,
+    critical_above: float | None,
+) -> NutrientStatus:
+    if deficient_below is not None and value < deficient_below:
+        return NutrientStatus.DEFICIENT
+    if critical_above is not None and value >= critical_above:
+        return NutrientStatus.HIGH
+    if optimal_max is not None and value > optimal_max:
+        return NutrientStatus.HIGH
+    if optimal_min is not None and value < optimal_min:
+        return NutrientStatus.PROBABLE_RESPONSE
+    return NutrientStatus.ADEQUATE
+
+
+def soil_assessment_from_lab_analysis(
+    analysis: LabAnalysis,
+    config: AgronomicEngineConfig,
+) -> SoilAssessmentInput:
+    """Classify a stored laboratory analysis with the active reference set."""
+    if not analysis.phosphorus_method or not analysis.potassium_method:
+        raise FertilizationInputError(
+            "The laboratory analysis requires phosphorus and potassium methods."
+        )
+
+    def classify(parameter: str, value: float) -> NutrientStatus:
+        reference = config.soil_ranges[parameter]
+        return _status_from_reference(
+            value,
+            deficient_below=reference.deficient_below,
+            optimal_min=reference.optimal_min,
+            optimal_max=reference.optimal_max,
+            critical_above=reference.critical_above,
+        )
+
+    return SoilAssessmentInput(
+        source=SoilSource.LABORATORY,
+        nitrogen=classify("nitrogen_total", analysis.nitrogen),
+        phosphorus=classify("phosphate_p", analysis.phosphorus),
+        potassium=classify("potassium", analysis.potassium),
+        phosphorus_method=analysis.phosphorus_method,
+        potassium_method=analysis.potassium_method,
+        ph=analysis.ph,
+        ec_ds_m=analysis.ec,
+    )
 
 
 def _round(value: float) -> float:
@@ -128,6 +181,10 @@ def _dose_read(
     }
     return ProductDoseRead(
         product=product.name,
+        guaranteed_analysis_pct={
+            nutrient: _round(fraction * 100)
+            for nutrient, fraction in product.nutrients.items()
+        },
         kg_ha=_round(kg_ha),
         kg_manzana=_round(kg_ha * hectares_per_manzana),
         g_plant=_round(kg_ha * 1000 / plants_per_hectare),
@@ -234,6 +291,7 @@ def _application_schedule(
         application_products = [
             ProductDoseRead(
                 product=product.product,
+                guaranteed_analysis_pct=product.guaranteed_analysis_pct,
                 kg_ha=_round(product.kg_ha * fraction),
                 kg_manzana=_round(product.kg_manzana * fraction),
                 g_plant=_round(product.g_plant * fraction),
@@ -357,6 +415,7 @@ def _young_crop_scenario(
             products=[
                 ProductDoseRead(
                     product=product.product,
+                    guaranteed_analysis_pct=product.guaranteed_analysis_pct,
                     kg_ha=_round(product.kg_ha * rule.fraction),
                     kg_manzana=_round(product.kg_manzana * rule.fraction),
                     g_plant=_round(product.g_plant * rule.fraction),
@@ -397,6 +456,10 @@ def calculate_fertilization_recommendation(
     area_hectares: float,
     plants_per_hectare: int,
 ) -> FertilizationRecommendationRead:
+    if request.soil is None:
+        raise FertilizationInputError(
+            "The request must be resolved to a soil assessment before calculation."
+        )
     if config.crop_id != crop_id:
         raise FertilizationInputError(
             "The agronomic reference dataset does not belong to the parcel crop."
