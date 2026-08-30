@@ -10,7 +10,6 @@ from app.models.mixins import UUIDPKMixin
 class FertilizationPlan(Base, UUIDPKMixin):
     __tablename__ = "fertilization_plans"
     __table_args__ = (
-        # Arco exclusivo: a lo sumo una fuente (nunca ambas a la vez)
         CheckConstraint(
             "NOT (reading_id IS NOT NULL AND lab_analysis_id IS NOT NULL)",
             name="ck_fertilization_plan_single_source",

@@ -12,6 +12,14 @@ from app.models.fertilization_engine import (
     EfficiencyFactor,
 )
 from app.models.fertilization_plan import FertilizationPlan
+from app.models.agronomic_reference import (
+    AgronomicReferenceSet,
+    SoilReferenceRange,
+    FertilizerProduct,
+    FertilizerProductNutrient,
+    ApplicationScheduleRule,
+    AgronomicParameter,
+)
 from app.models.alert import Alert
 from app.models.finance import Expense, Income, Production
 
@@ -31,6 +39,12 @@ __all__ = [
     "SoilType",
     "EfficiencyFactor",
     "FertilizationPlan",
+    "AgronomicReferenceSet",
+    "SoilReferenceRange",
+    "FertilizerProduct",
+    "FertilizerProductNutrient",
+    "ApplicationScheduleRule",
+    "AgronomicParameter",
     "Alert",
     "Expense",
     "Income",

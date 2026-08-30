@@ -6,13 +6,16 @@ from types import SimpleNamespace
 from pydantic import ValidationError
 
 from app.schemas.reading import ReadingCreate
+from app.schemas.diagnostic import SoilLevel
 from app.services.diagnostic_service import (
     ENGINE_VERSION,
     InvalidDiagnosticReadingError,
-    UnsupportedDiagnosticCropError,
     diagnose_sensor_reading,
 )
-from app.services.soil_reference_ranges import SoilLevel
+from tests.agronomic_config_factory import make_engine_config
+
+
+CONFIG = make_engine_config()
 
 
 def make_reading(**overrides):
@@ -34,7 +37,7 @@ def make_reading(**overrides):
 
 class DiagnoseSensorReadingTests(unittest.TestCase):
     def test_classifies_all_supported_sensor_parameters(self):
-        result = diagnose_sensor_reading(make_reading(), "Café")
+        result = diagnose_sensor_reading(make_reading(), "Café", CONFIG)
 
         self.assertEqual(result.engine_version, ENGINE_VERSION)
         self.assertEqual(result.overall_confidence, "low")
@@ -56,6 +59,7 @@ class DiagnoseSensorReadingTests(unittest.TestCase):
         result = diagnose_sensor_reading(
             make_reading(nitrogen=5, phosphorus=5, potassium=50, ec=1.2),
             "Coffea arabica",
+            CONFIG,
         )
 
         self.assertIn("Nitrógeno bajo.", result.warnings)
@@ -65,7 +69,7 @@ class DiagnoseSensorReadingTests(unittest.TestCase):
         self.assertTrue(any("sales" in warning for warning in result.warnings))
 
     def test_describes_high_noncritical_values_as_acceptable_with_follow_up(self):
-        result = diagnose_sensor_reading(make_reading(nitrogen=40), "Café")
+        result = diagnose_sensor_reading(make_reading(nitrogen=40), "Café", CONFIG)
 
         nitrogen = next(
             parameter
@@ -75,13 +79,9 @@ class DiagnoseSensorReadingTests(unittest.TestCase):
         self.assertEqual(nitrogen.level, SoilLevel.HIGH)
         self.assertEqual(nitrogen.message, "Aceptable, con seguimiento")
 
-    def test_rejects_crop_without_reference_ranges(self):
-        with self.assertRaises(UnsupportedDiagnosticCropError):
-            diagnose_sensor_reading(make_reading(), "Maíz")
-
     def test_rejects_reading_outside_physical_limits(self):
         with self.assertRaises(InvalidDiagnosticReadingError):
-            diagnose_sensor_reading(make_reading(ph=1.9), "Café")
+            diagnose_sensor_reading(make_reading(ph=1.9), "Café", CONFIG)
 
     def test_request_schema_rejects_ph_outside_diagnostic_limits(self):
         reading = make_reading(ph=10.1)

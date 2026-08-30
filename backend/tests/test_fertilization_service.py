@@ -15,6 +15,10 @@ from app.services.fertilization_service import (
     FertilizationInputError,
     calculate_fertilization_recommendation,
 )
+from tests.agronomic_config_factory import CROP_ID, VARIETY_ID, make_engine_config
+
+
+CONFIG = make_engine_config()
 
 
 def make_request(**overrides):
@@ -41,6 +45,9 @@ def make_request(**overrides):
 def calculate(request, *, plant_age_months=32):
     return calculate_fertilization_recommendation(
         request,
+        config=CONFIG,
+        crop_id=CROP_ID,
+        variety_id=VARIETY_ID,
         crop_name="Café",
         variety_name="Caturra",
         plant_age_months=plant_age_months,
@@ -96,7 +103,7 @@ class FertilizationServiceTests(unittest.TestCase):
         }
         self.assertAlmostEqual(requirements["N"], 71.07, places=2)
         self.assertAlmostEqual(requirements["P2O5"], 20.20, places=2)
-        self.assertAlmostEqual(requirements["K2O"], 92.97, places=2)
+        self.assertAlmostEqual(requirements["K2O"], 78.67, places=2)
         self.assertEqual(result.limiting_nutrients, ["N", "P", "K"])
         self.assertTrue(
             all(
@@ -110,6 +117,27 @@ class FertilizationServiceTests(unittest.TestCase):
                 for application in result.fertilizer_scenarios[0].application_schedule
             ],
             [0.25, 0.30, 0.30, 0.15],
+        )
+
+    def test_uses_the_database_reference_product_selection_and_doses(self):
+        result = calculate(make_request())
+
+        scenarios = [
+            {
+                product.product: product.kg_ha for product in scenario.products
+            }
+            for scenario in result.fertilizer_scenarios
+        ]
+        self.assertEqual(
+            scenarios,
+            [
+                {"DAP": 43.91, "KCl": 131.12, "Urea": 137.32},
+                {
+                    "MAP": 38.85,
+                    "Sulfato de potasio": 157.34,
+                    "Urea": 145.21,
+                },
+            ],
         )
 
     def test_converts_every_product_to_manzanas_and_grams_per_plant(self):

@@ -12,12 +12,15 @@ from app.db.session import get_db
 from app.models import Parcel, Reading, User
 from app.repositories import parcel as parcel_repo
 from app.repositories import reading as reading_repo
+from app.repositories.agronomic_reference import (
+    AgronomicReferenceNotFoundError,
+    get_active_engine_config,
+)
 from app.schemas.reading import ReadingCreate, ReadingCreateResponse, ReadingRead
 from app.services.diagnostic_service import (
-    UnsupportedDiagnosticCropError,
     diagnose_sensor_reading,
-    ensure_supported_crop,
 )
+from app.services.agronomic_config import IncompleteAgronomicConfigError
 
 router = APIRouter(prefix="/readings", tags=["readings"])
 
@@ -51,10 +54,10 @@ async def create_reading(
     """Receives and stores a sensor reading (NPK, EC, pH, temperature, humidity)."""
     parcel = await _get_authorized_parcel(db, payload.parcel_id, current_user)
     try:
-        ensure_supported_crop(parcel.crop.name)
-    except UnsupportedDiagnosticCropError as error:
+        config = await get_active_engine_config(db, parcel.crop_id)
+    except (AgronomicReferenceNotFoundError, IncompleteAgronomicConfigError) as error:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(error),
         ) from error
 
@@ -62,7 +65,7 @@ async def create_reading(
     reading = await reading_repo.create_reading(db, reading)
     return ReadingCreateResponse(
         **ReadingRead.model_validate(reading).model_dump(),
-        diagnosis=diagnose_sensor_reading(reading, parcel.crop.name),
+        diagnosis=diagnose_sensor_reading(reading, parcel.crop.name, config),
     )
 
 

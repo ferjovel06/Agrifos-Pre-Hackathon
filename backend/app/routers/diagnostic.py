@@ -8,12 +8,16 @@ from app.db.session import get_db
 from app.models import User
 from app.repositories import parcel as parcel_repo
 from app.repositories import reading as reading_repo
+from app.repositories.agronomic_reference import (
+    AgronomicReferenceNotFoundError,
+    get_active_engine_config,
+)
 from app.schemas.diagnostic import SensorDiagnosticRead
 from app.services.diagnostic_service import (
     InvalidDiagnosticReadingError,
-    UnsupportedDiagnosticCropError,
     diagnose_sensor_reading,
 )
+from app.services.agronomic_config import IncompleteAgronomicConfigError
 
 
 router = APIRouter(prefix="/diagnostics", tags=["diagnostics"])
@@ -48,9 +52,15 @@ async def diagnose_reading(
         )
 
     try:
-        return diagnose_sensor_reading(reading, parcel.crop.name)
-    except (InvalidDiagnosticReadingError, UnsupportedDiagnosticCropError) as error:
+        config = await get_active_engine_config(db, parcel.crop_id)
+        return diagnose_sensor_reading(reading, parcel.crop.name, config)
+    except InvalidDiagnosticReadingError as error:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(error),
+        ) from error
+    except (AgronomicReferenceNotFoundError, IncompleteAgronomicConfigError) as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(error),
         ) from error
