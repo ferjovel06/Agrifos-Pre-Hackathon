@@ -1,6 +1,10 @@
+import asyncio
 import uuid
-from collections import defaultdict
+import weakref
+from collections import OrderedDict, defaultdict
 from collections.abc import Sequence
+from dataclasses import dataclass
+from time import monotonic
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,6 +33,22 @@ from app.services.agronomic_config import (
 
 
 DEFAULT_REFERENCE_KEY = "coffee-nicaragua"
+ENGINE_CONFIG_CACHE_TTL_SECONDS = 300.0
+ENGINE_CONFIG_CACHE_MAX_ENTRIES = 32
+
+
+@dataclass(frozen=True)
+class _CachedEngineConfig:
+    config: AgronomicEngineConfig
+    expires_at: float
+
+
+_engine_config_cache: OrderedDict[
+    tuple[uuid.UUID, str], _CachedEngineConfig
+] = OrderedDict()
+_cache_locks: weakref.WeakKeyDictionary[
+    asyncio.AbstractEventLoop, asyncio.Lock
+] = weakref.WeakKeyDictionary()
 
 
 class AgronomicReferenceNotFoundError(LookupError):
@@ -40,6 +60,93 @@ async def get_active_engine_config(
     crop_id: uuid.UUID,
     *,
     reference_key: str = DEFAULT_REFERENCE_KEY,
+) -> AgronomicEngineConfig:
+    cache_key = (crop_id, reference_key)
+    cached = _get_cached_engine_config(cache_key)
+    if cached is not None:
+        return cached
+
+    async with _get_cache_lock():
+        cached = _get_cached_engine_config(cache_key)
+        if cached is not None:
+            return cached
+
+        config = await _load_active_engine_config(
+            db,
+            crop_id,
+            reference_key=reference_key,
+        )
+        _store_engine_config(cache_key, config)
+        return config
+
+
+def clear_engine_config_cache(
+    *,
+    crop_id: uuid.UUID | None = None,
+    reference_key: str | None = None,
+) -> None:
+    """Invalidate cached reference data after an administrative update."""
+    if crop_id is None and reference_key is None:
+        _engine_config_cache.clear()
+        return
+
+    matching_keys = [
+        key
+        for key in _engine_config_cache
+        if (crop_id is None or key[0] == crop_id)
+        and (reference_key is None or key[1] == reference_key)
+    ]
+    for key in matching_keys:
+        _engine_config_cache.pop(key, None)
+
+
+def _get_cache_lock() -> asyncio.Lock:
+    loop = asyncio.get_running_loop()
+    lock = _cache_locks.get(loop)
+    if lock is None:
+        lock = asyncio.Lock()
+        _cache_locks[loop] = lock
+    return lock
+
+
+def _get_cached_engine_config(
+    cache_key: tuple[uuid.UUID, str],
+) -> AgronomicEngineConfig | None:
+    entry = _engine_config_cache.get(cache_key)
+    if entry is None:
+        return None
+    if entry.expires_at <= monotonic():
+        _engine_config_cache.pop(cache_key, None)
+        return None
+    _engine_config_cache.move_to_end(cache_key)
+    return entry.config
+
+
+def _store_engine_config(
+    cache_key: tuple[uuid.UUID, str],
+    config: AgronomicEngineConfig,
+) -> None:
+    now = monotonic()
+    expired_keys = [
+        key for key, entry in _engine_config_cache.items() if entry.expires_at <= now
+    ]
+    for key in expired_keys:
+        _engine_config_cache.pop(key, None)
+
+    _engine_config_cache[cache_key] = _CachedEngineConfig(
+        config=config,
+        expires_at=now + ENGINE_CONFIG_CACHE_TTL_SECONDS,
+    )
+    _engine_config_cache.move_to_end(cache_key)
+    while len(_engine_config_cache) > ENGINE_CONFIG_CACHE_MAX_ENTRIES:
+        _engine_config_cache.popitem(last=False)
+
+
+async def _load_active_engine_config(
+    db: AsyncSession,
+    crop_id: uuid.UUID,
+    *,
+    reference_key: str,
 ) -> AgronomicEngineConfig:
     result = await db.execute(
         select(AgronomicReferenceSet).where(

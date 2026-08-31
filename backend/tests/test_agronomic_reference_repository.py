@@ -1,5 +1,7 @@
+import asyncio
 import unittest
 import uuid
+from unittest.mock import AsyncMock, patch
 
 from app.models import (
     AgronomicParameter,
@@ -12,7 +14,11 @@ from app.models import (
     SoilReferenceRange,
     SoilType,
 )
-from app.repositories.agronomic_reference import build_engine_config
+from app.repositories.agronomic_reference import (
+    build_engine_config,
+    clear_engine_config_cache,
+    get_active_engine_config,
+)
 from app.services.agronomic_config import (
     IncompleteAgronomicConfigError,
     REQUIRED_EXTRACTION_INDICES,
@@ -137,6 +143,92 @@ class AgronomicReferenceRepositoryTests(unittest.TestCase):
             build_engine_config(**records)
 
         self.assertIn("product_composition:urea", raised.exception.missing)
+
+
+class AgronomicReferenceCacheTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        clear_engine_config_cache()
+
+    def tearDown(self):
+        clear_engine_config_cache()
+
+    @patch("app.repositories.agronomic_reference._load_active_engine_config")
+    async def test_reuses_a_cached_configuration(self, load_config: AsyncMock):
+        records = make_complete_records()
+        config = build_engine_config(**records)
+        load_config.return_value = config
+
+        first = await get_active_engine_config(object(), records["crop_id"])
+        second = await get_active_engine_config(object(), records["crop_id"])
+
+        self.assertIs(first, config)
+        self.assertIs(second, config)
+        load_config.assert_awaited_once()
+
+    @patch("app.repositories.agronomic_reference._load_active_engine_config")
+    async def test_concurrent_requests_share_one_configuration_load(
+        self, load_config: AsyncMock
+    ):
+        records = make_complete_records()
+        config = build_engine_config(**records)
+
+        async def delayed_load(*args, **kwargs):
+            await asyncio.sleep(0)
+            return config
+
+        load_config.side_effect = delayed_load
+
+        first, second = await asyncio.gather(
+            get_active_engine_config(object(), records["crop_id"]),
+            get_active_engine_config(object(), records["crop_id"]),
+        )
+
+        self.assertIs(first, config)
+        self.assertIs(second, config)
+        load_config.assert_awaited_once()
+
+    @patch("app.repositories.agronomic_reference._load_active_engine_config")
+    async def test_expired_configuration_is_reloaded(self, load_config: AsyncMock):
+        records = make_complete_records()
+        config = build_engine_config(**records)
+        load_config.return_value = config
+
+        with patch(
+            "app.repositories.agronomic_reference.ENGINE_CONFIG_CACHE_TTL_SECONDS",
+            0.0,
+        ):
+            await get_active_engine_config(object(), records["crop_id"])
+            await get_active_engine_config(object(), records["crop_id"])
+
+        self.assertEqual(load_config.await_count, 2)
+
+    @patch("app.repositories.agronomic_reference._load_active_engine_config")
+    async def test_cache_is_isolated_by_crop_and_reference_key(
+        self, load_config: AsyncMock
+    ):
+        records = make_complete_records()
+        load_config.return_value = build_engine_config(**records)
+
+        await get_active_engine_config(object(), records["crop_id"])
+        await get_active_engine_config(object(), uuid.uuid4())
+        await get_active_engine_config(
+            object(), records["crop_id"], reference_key="another-reference"
+        )
+
+        self.assertEqual(load_config.await_count, 3)
+
+    @patch("app.repositories.agronomic_reference._load_active_engine_config")
+    async def test_explicit_invalidation_reloads_configuration(
+        self, load_config: AsyncMock
+    ):
+        records = make_complete_records()
+        load_config.return_value = build_engine_config(**records)
+
+        await get_active_engine_config(object(), records["crop_id"])
+        clear_engine_config_cache(crop_id=records["crop_id"])
+        await get_active_engine_config(object(), records["crop_id"])
+
+        self.assertEqual(load_config.await_count, 2)
 
 
 if __name__ == "__main__":
