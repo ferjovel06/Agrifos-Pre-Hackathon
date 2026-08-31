@@ -59,29 +59,37 @@ def calculate(request, *, plant_age_months=40):
 
 
 class FertilizationServiceTests(unittest.TestCase):
-    def test_returns_advisories_for_non_production_age_bands(self):
+    def test_returns_young_plan_during_nursery_and_establishment(self):
         request = make_request(target_yield=None)
 
         nursery = calculate(request, plant_age_months=8)
         establishment = calculate(request, plant_age_months=10)
-        transition = calculate(request, plant_age_months=30)
 
-        self.assertEqual(nursery.recommendation_status, "nursery_advisory")
+        self.assertEqual(nursery.recommendation_status, "young_crop_reference")
         self.assertEqual(
             establishment.recommendation_status,
-            "establishment_advisory",
+            "young_crop_reference",
         )
-        self.assertEqual(
-            transition.recommendation_status,
-            "productive_transition_advisory",
+        self.assertTrue(nursery.fertilizer_scenarios)
+        self.assertTrue(establishment.fertilizer_scenarios)
+        self.assertTrue(any("vivero" in item.lower() for item in nursery.warnings))
+        self.assertTrue(
+            any("establecimiento" in item.lower() for item in establishment.warnings)
         )
-        self.assertFalse(nursery.fertilizer_scenarios)
-        self.assertFalse(establishment.fertilizer_scenarios)
-        self.assertFalse(transition.fertilizer_scenarios)
 
-    def test_requires_target_yield_from_initial_production(self):
+    def test_uses_documented_yield_example_during_productive_transition(self):
+        transition = calculate(make_request(target_yield=20), plant_age_months=32)
+
+        self.assertEqual(transition.recommendation_status, "decision_support")
+        self.assertEqual(transition.target_green_kg_ha, 920)
+        self.assertTrue(transition.fertilizer_scenarios)
+        self.assertTrue(
+            any("edad y carga" in item.lower() for item in transition.assumptions)
+        )
+
+    def test_requires_target_yield_from_productive_transition(self):
         with self.assertRaises(FertilizationInputError):
-            calculate(make_request(target_yield=None), plant_age_months=37)
+            calculate(make_request(target_yield=None), plant_age_months=25)
 
     def test_classifies_stored_lab_values_with_database_ranges(self):
         assessment = soil_assessment_from_lab_analysis(

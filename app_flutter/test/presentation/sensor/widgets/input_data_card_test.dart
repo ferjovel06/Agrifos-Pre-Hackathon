@@ -16,7 +16,7 @@ void main() {
             cropName: 'Café',
             varietyName: 'Caturra',
             stageName: 'Llenado',
-            ageMonths: 40,
+            ageMonths: 32,
             plantsPerHectare: 5000,
             targetYield: '20',
             onTargetYieldChanged: (value) => changed = value,

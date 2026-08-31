@@ -443,7 +443,7 @@ class _SensorScreenState extends State<SensorScreen> {
 
   bool get _usesExpectedYield {
     final parcel = _parcel;
-    return parcel != null && _ageInMonths(parcel.plantingDate) >= 37;
+    return parcel != null && _ageInMonths(parcel.plantingDate) >= 25;
   }
 
   void _onTargetYieldChanged(String value) {

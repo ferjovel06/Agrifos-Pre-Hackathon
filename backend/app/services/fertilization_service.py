@@ -115,40 +115,6 @@ def _target_green_kg_ha(
     )
 
 
-def _advisory_response(
-    request: FertilizationRecommendationRequest,
-    *,
-    crop_name: str,
-    variety_name: str,
-    plant_age_months: int,
-    life_stage: LifeStage,
-    status: str,
-    warnings: list[str],
-    config: AgronomicEngineConfig,
-) -> FertilizationRecommendationRead:
-    return FertilizationRecommendationRead(
-        parcel_id=request.parcel_id,
-        crop=crop_name,
-        variety=variety_name,
-        plant_age_months=plant_age_months,
-        life_stage=life_stage,
-        fruit_stage=request.fruit_stage,
-        target_green_kg_ha=0,
-        engine_version=ENGINE_VERSION,
-        recommendation_status=status,
-        nutrient_requirements=[],
-        fertilizer_scenarios=[],
-        limiting_nutrients=[],
-        warnings=warnings,
-        assumptions=[
-            (
-                f"Referencia: {config.reference_key} v{config.reference_version}; "
-                f"fuente: {config.reference_source}."
-            )
-        ],
-    )
-
-
 def _nutrient_requirements(
     request: FertilizationRecommendationRequest,
     target_green_kg_ha: float,
@@ -521,36 +487,6 @@ def calculate_fertilization_recommendation(
             "Electrical conductivity is too high for an automatic fertilizer plan."
         )
 
-    if plant_age_months <= 8:
-        return _advisory_response(
-            request,
-            crop_name=crop_name,
-            variety_name=variety_name,
-            plant_age_months=plant_age_months,
-            life_stage=life_stage,
-            status="nursery_advisory",
-            warnings=[
-                "La etapa de vivero requiere manejo de sustrato, riego y salinidad.",
-                "No se emite una dosis productiva de campo para esta edad.",
-            ],
-            config=config,
-        )
-
-    if plant_age_months <= 12:
-        return _advisory_response(
-            request,
-            crop_name=crop_name,
-            variety_name=variety_name,
-            plant_age_months=plant_age_months,
-            life_stage=life_stage,
-            status="establishment_advisory",
-            warnings=[
-                "La etapa de establecimiento prioriza humedad y fósforo de arranque.",
-                "No se emite una dosis automática sin un modelo calibrado de establecimiento.",
-            ],
-            config=config,
-        )
-
     if plant_age_months <= 24:
         young_scenario, nutrient_rows = _young_crop_scenario(
             request,
@@ -567,6 +503,27 @@ def calculate_fertilization_recommendation(
             if status
             in {NutrientStatus.DEFICIENT, NutrientStatus.PROBABLE_RESPONSE}
         ]
+        warnings = [
+            "Plan general acumulado para café joven; no es una receta universal.",
+            "Revisar las aplicaciones ya realizadas antes de usar el plan.",
+            "El plan se distribuye entre los meses 2, 6, 10, 14 y 18.",
+        ]
+        if plant_age_months <= 3:
+            warnings.insert(
+                0,
+                "En vivero inicial, manejar estas aplicaciones en el sustrato; no corresponden a una dosis productiva de campo.",
+            )
+        elif plant_age_months <= 8:
+            warnings.insert(
+                0,
+                "En vivero avanzado, fraccionar los nutrientes y vigilar la conductividad eléctrica.",
+            )
+        elif plant_age_months <= 12:
+            warnings.insert(
+                0,
+                "En establecimiento, priorizar humedad adecuada y fósforo de arranque.",
+            )
+
         return FertilizationRecommendationRead(
             parcel_id=request.parcel_id,
             crop=crop_name,
@@ -580,11 +537,7 @@ def calculate_fertilization_recommendation(
             nutrient_requirements=nutrient_rows,
             fertilizer_scenarios=[young_scenario],
             limiting_nutrients=limiting,
-            warnings=[
-                "Plan general acumulado para levante; no es una receta universal.",
-                "Revisar las aplicaciones ya realizadas antes de usar el plan.",
-                "El plan se distribuye entre los meses 2, 6, 10, 14 y 18.",
-            ],
+            warnings=warnings,
             assumptions=[
                 (
                     "Referencia de levante: "
@@ -600,21 +553,6 @@ def calculate_fertilization_recommendation(
                     f"fuente: {config.reference_source}."
                 ),
             ],
-        )
-
-    if plant_age_months <= 36:
-        return _advisory_response(
-            request,
-            crop_name=crop_name,
-            variety_name=variety_name,
-            plant_age_months=plant_age_months,
-            life_stage=life_stage,
-            status="productive_transition_advisory",
-            warnings=[
-                "La transición productiva requiere separar la demanda vegetativa de la demanda del fruto.",
-                "No se aplica el balance de producción madura hasta contar con carga observada y un modelo de transición calibrado.",
-            ],
-            config=config,
         )
 
     target_green_kg_ha = _target_green_kg_ha(request, config)
@@ -691,6 +629,10 @@ def calculate_fertilization_recommendation(
         f"Factor de mantenimiento: {config.parameters['maintenance_factor']}.",
         f"Área registrada: {area_hectares} ha; densidad: {plants_per_hectare} plantas/ha.",
         "Factor varietal: 1.00, pendiente de calibración local.",
+        (
+            "Factores de edad y carga: 1.00 como escenario central de referencia, "
+            "pendientes de calibración local."
+        ),
         (
             "Eficiencias N/P/K: "
             f"{config.parameters['nitrogen_efficiency']}/"
