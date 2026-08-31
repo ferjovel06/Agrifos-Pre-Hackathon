@@ -27,6 +27,6 @@ class FarmRepository {
       'latitude': latitude,
       'longitude': longitude,
     });
-    return Farm.fromJson(response as Map<String, dynamic>);
+    return Farm.fromJson(response);
   }
 }
