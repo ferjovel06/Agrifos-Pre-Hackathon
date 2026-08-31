@@ -106,7 +106,7 @@ class InputDataCard extends StatelessWidget {
               ),
             ],
           ),
-          if (ageMonths >= 37) ...[
+          if (ageMonths >= 25) ...[
             const SizedBox(height: 14),
             _ExpectedYieldField(
               initialValue: targetYield,
