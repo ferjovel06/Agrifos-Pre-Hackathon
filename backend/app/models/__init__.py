@@ -2,7 +2,7 @@ from app.models.user import User
 from app.models.farm import Farm, Parcel
 from app.models.crop import Crop, Variety
 from app.models.soil import Reading, LabAnalysis
-from app.models.phenology import PhenologicalStage
+from app.models.phenology import PhenologicalStageTemplate, ParcelPhenologicalStage
 from app.models.fertilization_engine import (
     OptimalRequirement,
     ExtractionIndex,
@@ -31,7 +31,8 @@ __all__ = [
     "Variety",
     "Reading",
     "LabAnalysis",
-    "PhenologicalStage",
+    "PhenologicalStageTemplate",
+    "ParcelPhenologicalStage",
     "OptimalRequirement",
     "ExtractionIndex",
     "VarietyFactor",

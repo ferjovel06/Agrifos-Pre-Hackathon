@@ -44,9 +44,8 @@ class Parcel(Base, UUIDPKMixin, TimestampMixin):
 
     readings: Mapped[list["Reading"]] = relationship(back_populates="parcel")
     lab_analyses: Mapped[list["LabAnalysis"]] = relationship(back_populates="parcel")
-    stage_instances: Mapped[list["PhenologicalStage"]] = relationship(
-        back_populates="parcel",
-        foreign_keys="PhenologicalStage.parcel_id",
+    stage_instances: Mapped[list["ParcelPhenologicalStage"]] = relationship(
+        back_populates="parcel"
     )
     fertilization_plans: Mapped[list["FertilizationPlan"]] = relationship(
         back_populates="parcel"

@@ -10,7 +10,7 @@ from app.core.auth import (
     require_role,
     require_write_access,
 )
-from app.models import User, PhenologicalStage
+from app.models import ParcelPhenologicalStage, PhenologicalStageTemplate, User
 from app.schemas.phenology import (
     StageTemplateCreate,
     StageTemplateUpdate,
@@ -42,18 +42,20 @@ async def _get_owned_parcel_or_403(parcel_id: uuid.UUID, db: AsyncSession, curre
     return parcel
 
 
-async def _get_template_or_404(template_id: uuid.UUID, db: AsyncSession) -> PhenologicalStage:
-    stage = await stage_repo.get_stage(db, template_id)
-    if not stage or stage.parcel_id is not None:
+async def _get_template_or_404(
+    template_id: uuid.UUID, db: AsyncSession
+) -> PhenologicalStageTemplate:
+    stage = await stage_repo.get_template(db, template_id)
+    if not stage:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Template not found.")
     return stage
 
 
 async def _get_owned_instance_or_403(
     instance_id: uuid.UUID, db: AsyncSession, current_user: User
-) -> PhenologicalStage:
-    stage = await stage_repo.get_stage(db, instance_id)
-    if not stage or stage.parcel_id is None:
+) -> ParcelPhenologicalStage:
+    stage = await stage_repo.get_instance(db, instance_id)
+    if not stage:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Stage instance not found.")
     await _get_owned_parcel_or_403(stage.parcel_id, db, current_user)
     return stage
@@ -71,8 +73,8 @@ async def create_template(
     if not crop:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Crop not found.")
 
-    stage = PhenologicalStage(parcel_id=None, template_id=None, **payload.model_dump())
-    return await stage_repo.create_stage(db, stage)
+    stage = PhenologicalStageTemplate(**payload.model_dump())
+    return await stage_repo.create_template(db, stage)
 
 
 @router.get("/templates", response_model=list[StageTemplateRead])
@@ -106,7 +108,7 @@ async def update_template(
     update_data = payload.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(template, field, value)
-    return await stage_repo.update_stage(db, template)
+    return await stage_repo.update_template(db, template)
 
 
 @router.delete("/templates/{template_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -116,7 +118,7 @@ async def delete_template(
     db: AsyncSession = Depends(get_db),
 ):
     template = await _get_template_or_404(template_id, db)
-    await stage_repo.delete_stage(db, template)
+    await stage_repo.delete_template(db, template)
 
 
 
@@ -137,17 +139,13 @@ async def create_instance(
             detail="This template belongs to a different crop than the parcel.",
         )
 
-    instance = PhenologicalStage(
+    instance = ParcelPhenologicalStage(
         parcel_id=parcel.id,
-        template_id=template.id,
-        crop_id=None,
-        name=template.name,
-        stage_order=template.stage_order,
-        duration_days=template.duration_days,
+        template=template,
         estimated_date=payload.estimated_date,
         actual_date=payload.actual_date,
     )
-    return await stage_repo.create_stage(db, instance)
+    return await stage_repo.create_instance(db, instance)
 
 
 @router.get("/instances", response_model=list[StageInstanceRead])
@@ -182,7 +180,7 @@ async def update_instance(
     update_data = payload.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(instance, field, value)
-    return await stage_repo.update_stage(db, instance)
+    return await stage_repo.update_instance(db, instance)
 
 
 @router.delete("/instances/{instance_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -192,4 +190,4 @@ async def delete_instance(
     db: AsyncSession = Depends(get_db),
 ):
     instance = await _get_owned_instance_or_403(instance_id, db, current_user)
-    await stage_repo.delete_stage(db, instance)
+    await stage_repo.delete_instance(db, instance)
