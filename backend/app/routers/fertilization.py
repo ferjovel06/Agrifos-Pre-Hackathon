@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import has_global_read_access, require_write_access
 from app.db.session import get_db
 from app.models import User
+from app.repositories import fertilization_plan as fertilization_plan_repo
 from app.repositories import lab_analysis as lab_analysis_repo
 from app.repositories import parcel as parcel_repo
 from app.repositories.agronomic_reference import (
@@ -93,7 +94,7 @@ async def create_recommendation(
                     "lab_analysis_id": None,
                 }
             )
-        return calculate_fertilization_recommendation(
+        recommendation = calculate_fertilization_recommendation(
             resolved_payload,
             config=config,
             crop_id=parcel.crop_id,
@@ -104,6 +105,19 @@ async def create_recommendation(
             area_hectares=parcel.area_hectares,
             plants_per_hectare=parcel.plants_per_hectare,
         )
+        method = (
+            "laboratory"
+            if payload.lab_analysis_id is not None
+            else payload.soil.source.value
+        )
+        plan = await fertilization_plan_repo.create_fertilization_plan(
+            db,
+            recommendation=recommendation,
+            config=config,
+            method=method,
+            lab_analysis_id=payload.lab_analysis_id,
+        )
+        return recommendation.model_copy(update={"plan_id": plan.id})
     except FertilizationInputError as error:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

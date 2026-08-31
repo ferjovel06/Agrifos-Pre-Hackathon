@@ -94,6 +94,7 @@ class SoilRangeConfig:
 
 @dataclass(frozen=True)
 class FertilizerProductConfig:
+    id: uuid.UUID
     key: str
     name: str
     is_low_chloride: bool

@@ -319,6 +319,7 @@ def build_engine_config(
         products=freeze_mapping(
             {
                 product.key: FertilizerProductConfig(
+                    id=product.id,
                     key=product.key,
                     name=product.name,
                     is_low_chloride=product.is_low_chloride,

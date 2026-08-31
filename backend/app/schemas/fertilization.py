@@ -96,6 +96,7 @@ class NutrientRequirementRead(BaseModel):
 
 
 class ProductDoseRead(BaseModel):
+    product_key: str
     product: str
     guaranteed_analysis_pct: dict[str, float]
     kg_ha: float
@@ -120,6 +121,7 @@ class FertilizerScenarioRead(BaseModel):
 
 
 class FertilizationRecommendationRead(BaseModel):
+    plan_id: uuid.UUID | None = None
     parcel_id: uuid.UUID
     crop: str
     variety: str
