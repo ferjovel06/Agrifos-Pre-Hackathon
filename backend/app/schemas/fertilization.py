@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from enum import Enum
 
 from pydantic import BaseModel, Field, model_validator
@@ -127,6 +128,8 @@ class FertilizerScenarioRead(BaseModel):
 
 class FertilizationRecommendationRead(BaseModel):
     plan_id: uuid.UUID | None = None
+    source_type: str | None = None
+    source_recorded_at: datetime | None = None
     parcel_id: uuid.UUID
     crop: str
     variety: str

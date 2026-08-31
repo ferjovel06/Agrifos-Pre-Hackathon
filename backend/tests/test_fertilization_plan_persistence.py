@@ -139,6 +139,42 @@ class FertilizationPlanRepositoryTests(unittest.IsolatedAsyncioTestCase):
 
 
 class FertilizationPlanRouterTests(unittest.IsolatedAsyncioTestCase):
+    async def test_latest_plan_is_read_only(self):
+        user_id = uuid.uuid4()
+        parcel_id = uuid.uuid4()
+        recommendation = make_recommendation(parcel_id)
+        plan = SimpleNamespace(
+            id=uuid.uuid4(),
+            recommendation_snapshot=recommendation.model_dump(mode="json"),
+        )
+        parcel = SimpleNamespace(farm=SimpleNamespace(user_id=user_id))
+
+        with (
+            patch.object(
+                router.parcel_repo,
+                "get_parcel",
+                AsyncMock(return_value=parcel),
+            ),
+            patch.object(
+                router.fertilization_plan_repo,
+                "get_latest_fertilization_plan",
+                AsyncMock(return_value=plan),
+            ),
+            patch.object(
+                router.fertilization_plan_repo,
+                "create_fertilization_plan",
+                AsyncMock(),
+            ) as create,
+        ):
+            result = await router.get_latest_plan(
+                parcel_id=parcel_id,
+                current_user=SimpleNamespace(id=user_id, role="farmer"),
+                db=AsyncMock(),
+            )
+
+        self.assertEqual(result.plan_id, plan.id)
+        create.assert_not_awaited()
+
     async def test_returns_the_persisted_plan_identifier(self):
         user_id = uuid.uuid4()
         parcel_id = uuid.uuid4()

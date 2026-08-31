@@ -7,6 +7,17 @@ class FertilizationRepository {
 
   final ApiClient _client;
 
+  Future<FertilizationRecommendation?> getLatestPlan(String parcelId) async {
+    final response = await _client.get(
+      '/fertilization/plans/latest',
+      query: {'parcel_id': parcelId},
+    );
+    if (response == null) return null;
+    return FertilizationRecommendation.fromJson(
+      response as Map<String, dynamic>,
+    );
+  }
+
   Future<FertilizationRecommendation> createFromLabAnalysis({
     required String parcelId,
     required String labAnalysisId,

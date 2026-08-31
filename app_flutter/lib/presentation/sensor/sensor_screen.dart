@@ -12,6 +12,7 @@ import '../../domain/entities/parcel.dart';
 import '../../domain/entities/phenological_stage.dart';
 import '../../domain/entities/sensor_diagnostic.dart';
 import '../farm/farm_provider.dart';
+import '../fertilization/fertilization_plan_screen.dart';
 import '../home/latest_reading_provider.dart';
 import '../lab_analysis/lab_analysis_screen.dart';
 import 'sensor_provider.dart';
@@ -90,6 +91,7 @@ class _SensorScreenState extends State<SensorScreen> {
           _stageTemplates = const [];
           _currentStageOrder = null;
           _labAnalyses = const [];
+          _fertilizationRecommendation = null;
           _labAnalysesError = null;
           _isLoadingParcel = false;
           _parcelError =
@@ -169,14 +171,47 @@ class _SensorScreenState extends State<SensorScreen> {
         _labAnalyses = analyses;
         _isLoadingLabAnalyses = false;
       });
-      if (analyses.isNotEmpty) {
-        await _requestLabRecommendation(_parcel!, analyses.first);
-      }
+      await _loadLatestFertilizationPlan(parcelId);
     } catch (_) {
       if (!mounted || _parcel?.id != parcelId) return;
       setState(() {
         _isLoadingLabAnalyses = false;
         _labAnalysesError = 'No se pudieron cargar los análisis.';
+      });
+    }
+  }
+
+  Future<void> _loadLatestFertilizationPlan(String parcelId) async {
+    setState(() {
+      _isLoadingFertilization = true;
+      _fertilizationError = null;
+    });
+    try {
+      final recommendation = await _fertilizationRepository.getLatestPlan(
+        parcelId,
+      );
+      if (!mounted || _parcel?.id != parcelId) return;
+      setState(() {
+        _fertilizationRecommendation = recommendation;
+        _isLoadingFertilization = false;
+      });
+    } on ApiAuthException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingFertilization = false;
+        _fertilizationError = error.message;
+      });
+    } on ApiException catch (error) {
+      if (!mounted || _parcel?.id != parcelId) return;
+      setState(() {
+        _isLoadingFertilization = false;
+        _fertilizationError = _fertilizationErrorMessage(error.message);
+      });
+    } catch (_) {
+      if (!mounted || _parcel?.id != parcelId) return;
+      setState(() {
+        _isLoadingFertilization = false;
+        _fertilizationError = 'No se pudo actualizar el plan guardado.';
       });
     }
   }
@@ -260,7 +295,27 @@ class _SensorScreenState extends State<SensorScreen> {
         ),
       ),
     );
-    if (mounted) await _loadLabAnalyses(parcel.id);
+    if (!mounted) return;
+    await _loadLabAnalyses(parcel.id);
+    if (_labAnalyses.isNotEmpty) {
+      await _requestLabRecommendation(parcel, _labAnalyses.first);
+    }
+  }
+
+  Future<void> _refresh() async {
+    final farmId = context.read<FarmProvider>().currentFarm?.id;
+    if (farmId == null) return;
+    await _loadParcelData(farmId);
+  }
+
+  void _openFertilizationPlan() {
+    final recommendation = _fertilizationRecommendation;
+    if (recommendation == null) return;
+    Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => FertilizationPlanScreen(recommendation: recommendation),
+      ),
+    );
   }
 
   int _ageInMonths(DateTime plantingDate) {
@@ -276,41 +331,48 @@ class _SensorScreenState extends State<SensorScreen> {
     final sensor = context.watch<SensorProvider>();
     final parcel = _parcel;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildInputDataSection(),
-          if (parcel != null) ...[
+    return RefreshIndicator(
+      onRefresh: _refresh,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.only(bottom: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildInputDataSection(),
+            if (parcel != null) ...[
+              const SizedBox(height: 16),
+              LabAnalysisCard(
+                analyses: _labAnalyses,
+                isLoading: _isLoadingLabAnalyses,
+                errorMessage: _labAnalysesError,
+                onManage: () => _openLabAnalyses(parcel),
+              ),
+            ],
             const SizedBox(height: 16),
-            LabAnalysisCard(
-              analyses: _labAnalyses,
-              isLoading: _isLoadingLabAnalyses,
-              errorMessage: _labAnalysesError,
-              onManage: () => _openLabAnalyses(parcel),
+            TelemetryCard(
+              status: sensor.status,
+              reading: sensor.lastReading,
+              diagnosis: sensor.savedDiagnosis,
+              saveStatus: sensor.saveStatus,
+              errorMessage: sensor.saveErrorMessage ?? sensor.errorMessage,
+              onAction: parcel == null
+                  ? null
+                  : () => _handleTelemetryAction(sensor, parcel),
+            ),
+            const SizedBox(height: 16),
+            ConventionalFertilizationCard(
+              scenario: _fertilizationRecommendation?.conventionalScenario,
+              isLoading: _isLoadingFertilization,
+              onViewDetails: _fertilizationRecommendation == null
+                  ? null
+                  : _openFertilizationPlan,
+              emptyMessage:
+                  _fertilizationError ??
+                  'Captura una muestra para generar las fuentes y dosis.',
             ),
           ],
-          const SizedBox(height: 16),
-          TelemetryCard(
-            status: sensor.status,
-            reading: sensor.lastReading,
-            diagnosis: sensor.savedDiagnosis,
-            saveStatus: sensor.saveStatus,
-            errorMessage: sensor.saveErrorMessage ?? sensor.errorMessage,
-            onAction: parcel == null
-                ? null
-                : () => _handleTelemetryAction(sensor, parcel),
-          ),
-          const SizedBox(height: 16),
-          ConventionalFertilizationCard(
-            scenario: _fertilizationRecommendation?.conventionalScenario,
-            isLoading: _isLoadingFertilization,
-            emptyMessage:
-                _fertilizationError ??
-                'Captura una muestra para generar las fuentes y dosis.',
-          ),
-        ],
+        ),
       ),
     );
   }
