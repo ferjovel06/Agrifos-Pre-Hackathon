@@ -184,6 +184,7 @@ def _dose_read(
         for nutrient, fraction in product.nutrients.items()
     }
     return ProductDoseRead(
+        product_key=product.key,
         product=product.name,
         guaranteed_analysis_pct={
             nutrient: _round(fraction * 100)
@@ -294,6 +295,7 @@ def _application_schedule(
     for index, (moment, fraction) in enumerate(fractions):
         application_products = [
             ProductDoseRead(
+                product_key=product.product_key,
                 product=product.product,
                 guaranteed_analysis_pct=product.guaranteed_analysis_pct,
                 kg_ha=_round(product.kg_ha * fraction),
@@ -418,6 +420,7 @@ def _young_crop_scenario(
             fraction=_round(rule.fraction),
             products=[
                 ProductDoseRead(
+                    product_key=product.product_key,
                     product=product.product,
                     guaranteed_analysis_pct=product.guaranteed_analysis_pct,
                     kg_ha=_round(product.kg_ha * rule.fraction),

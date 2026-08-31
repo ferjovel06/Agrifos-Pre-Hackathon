@@ -31,6 +31,9 @@ erDiagram
   PARCEL ||--o{ FERTILIZATION_PLAN : generates
   READING o|--o{ FERTILIZATION_PLAN : originates
   LAB_ANALYSIS o|--o{ FERTILIZATION_PLAN : originates
+  AGRONOMIC_REFERENCE_SET ||--o{ FERTILIZATION_PLAN : reproduces
+  FERTILIZATION_PLAN ||--o{ FERTILIZATION_PLAN_ITEM : contains
+  FERTILIZER_PRODUCT ||--o{ FERTILIZATION_PLAN_ITEM : recommends
   FARM ||--o{ ALERT : triggers
   PARCEL o|--o{ ALERT : scopes
   FARM ||--o{ EXPENSE : incurs
@@ -227,8 +230,35 @@ erDiagram
     uuid parcel_id FK
     uuid reading_id FK
     uuid lab_analysis_id FK
+    uuid reference_set_id FK
     string method
+    float target_green_kg_ha
+    int plant_age_months
+    string life_stage
+    string fruit_stage
+    string engine_version
+    string recommendation_status
+    json nutrient_requirements
+    json limiting_nutrients
+    json warnings
+    json assumptions
     timestamp generated_at
+  }
+  FERTILIZATION_PLAN_ITEM {
+    uuid id PK
+    uuid plan_id FK
+    uuid fertilizer_product_id FK
+    string scenario_name
+    string selection_method
+    boolean scenario_is_valid
+    int application_number
+    string moment
+    float fraction
+    float kg_ha
+    float kg_manzana
+    float g_plant
+    json guaranteed_analysis_pct
+    json nutrient_contributions_kg_ha
   }
   ALERT {
     uuid id PK

@@ -56,6 +56,7 @@ def make_engine_config() -> AgronomicEngineConfig:
     products = freeze_mapping(
         {
             key: FertilizerProductConfig(
+                id=uuid.uuid5(uuid.NAMESPACE_URL, f"agrifos:test-product:{key}"),
                 key=key,
                 name=name,
                 is_low_chloride=key in {"map", "tsp", "potassium_sulfate", "mgo"},

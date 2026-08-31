@@ -11,7 +11,7 @@ from app.models.fertilization_engine import (
     SoilType,
     EfficiencyFactor,
 )
-from app.models.fertilization_plan import FertilizationPlan
+from app.models.fertilization_plan import FertilizationPlan, FertilizationPlanItem
 from app.models.agronomic_reference import (
     AgronomicReferenceSet,
     SoilReferenceRange,
@@ -39,6 +39,7 @@ __all__ = [
     "SoilType",
     "EfficiencyFactor",
     "FertilizationPlan",
+    "FertilizationPlanItem",
     "AgronomicReferenceSet",
     "SoilReferenceRange",
     "FertilizerProduct",
