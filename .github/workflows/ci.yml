@@ -21,6 +21,12 @@ jobs:
     name: Backend tests
     runs-on: ubuntu-latest
 
+    env:
+      ENV: test
+      APP_DEBUG: "false"
+      DATABASE_URL: postgresql+asyncpg://postgres:test@localhost:5432/agrifos_test
+      SUPABASE_URL: https://example.supabase.co
+
     defaults:
       run:
         working-directory: backend
