@@ -26,6 +26,11 @@ class FertilizationPlan(Base, UUIDPKMixin):
             "NOT (reading_id IS NOT NULL AND lab_analysis_id IS NOT NULL)",
             name="ck_fertilization_plan_single_source",
         ),
+        UniqueConstraint(
+            "parcel_id",
+            "input_fingerprint",
+            name="uq_fertilization_plan_parcel_fingerprint",
+        ),
     )
 
     parcel_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("parcels.id"), nullable=False)
@@ -40,6 +45,8 @@ class FertilizationPlan(Base, UUIDPKMixin):
     )
 
     method: Mapped[str] = mapped_column(String(20))  # sensor | laboratory | mixed
+    input_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    recommendation_snapshot: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     target_green_kg_ha: Mapped[float] = mapped_column(Float, nullable=False)
     plant_age_months: Mapped[int] = mapped_column(Integer, nullable=False)
     life_stage: Mapped[str] = mapped_column(String(40), nullable=False)

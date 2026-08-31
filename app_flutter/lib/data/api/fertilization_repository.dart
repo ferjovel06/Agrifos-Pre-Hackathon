@@ -27,6 +27,7 @@ class FertilizationRepository {
 
   Future<FertilizationRecommendation> createRecommendation({
     required String parcelId,
+    String? readingId,
     double? targetYield,
     required String yieldUnit,
     required String fruitStage,
@@ -51,6 +52,7 @@ class FertilizationRepository {
     }..removeWhere((_, value) => value == null);
     final body = <String, dynamic>{
       'parcel_id': parcelId,
+      'reading_id': readingId,
       'target_yield': targetYield,
       'yield_unit': yieldUnit,
       'fruit_stage': fruitStage,

@@ -329,10 +329,12 @@ class _SensorScreenState extends State<SensorScreen> {
     if (sensor.saveStatus == SaveStatus.saved && mounted) {
       context.read<LatestReadingProvider>().fetchLatest(parcel.id);
       final diagnosis = sensor.savedDiagnosis;
+      final savedReading = sensor.savedReading;
       final reading = sensor.lastReading;
-      if (diagnosis != null && reading != null) {
+      if (diagnosis != null && savedReading != null && reading != null) {
         await _requestSensorRecommendation(
           parcel: parcel,
+          readingId: savedReading.id,
           reading: reading,
           diagnosis: diagnosis,
         );
@@ -342,6 +344,7 @@ class _SensorScreenState extends State<SensorScreen> {
 
   Future<void> _requestSensorRecommendation({
     required Parcel parcel,
+    required String readingId,
     required SensorReading reading,
     required SensorDiagnostic diagnosis,
   }) async {
@@ -364,6 +367,7 @@ class _SensorScreenState extends State<SensorScreen> {
       final recommendation = await _fertilizationRepository
           .createRecommendation(
             parcelId: parcel.id,
+            readingId: readingId,
             targetYield: targetYield,
             yieldUnit: 'qq_gold_ha',
             fruitStage: _fruitStageFor(_stageName),
