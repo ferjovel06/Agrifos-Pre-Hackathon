@@ -74,6 +74,7 @@ class FertilizationRecommendationRequest(BaseModel):
     yield_unit: YieldUnit
     fruit_stage: FruitStage
     soil: SoilAssessmentInput | None = None
+    reading_id: uuid.UUID | None = None
     lab_analysis_id: uuid.UUID | None = None
 
     @model_validator(mode="after")
@@ -82,6 +83,10 @@ class FertilizationRecommendationRequest(BaseModel):
             raise ValueError(
                 "Provide exactly one of soil or lab_analysis_id."
             )
+        if self.reading_id is not None and (
+            self.soil is None or self.soil.source != SoilSource.SENSOR
+        ):
+            raise ValueError("reading_id can only accompany a sensor assessment.")
         return self
 
 

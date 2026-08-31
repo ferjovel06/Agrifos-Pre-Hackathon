@@ -96,7 +96,7 @@ Los detalles completos del motor agronómico se distribuyen en los documentos de
 
 ## Motor de Cálculo
 
-El motor agronómico combina los datos del suelo con el cultivo, la variedad, la etapa fenológica, la densidad de siembra y el rendimiento objetivo para estimar el balance nutricional de N, P y K. Sus rangos, parámetros, productos, factores y calendarios activos se cargan desde referencias agronómicas versionadas en PostgreSQL; el backend conserva temporalmente la configuración inmutable para evitar consultas repetidas.
+El motor agronómico combina los datos del suelo con el cultivo, la variedad, la etapa fenológica, la densidad de siembra y el rendimiento objetivo para estimar el balance nutricional de N, P y K. Sus rangos, parámetros, productos, factores y calendarios activos se cargan desde referencias agronómicas versionadas en PostgreSQL; el backend conserva temporalmente la configuración inmutable para evitar consultas repetidas y reutiliza planes idénticos mediante una huella determinista de sus entradas y resultados.
 
 - **Entradas:** lecturas del sensor 7-en-1 o resultados de laboratorio, datos de la parcela y contexto fenológico.
 - **Proceso:** normalización de unidades, evaluación del aporte del suelo, estimación del déficit y ajuste por eficiencia agronómica.
@@ -286,7 +286,7 @@ flutter test
 
 ## Ejemplos de endpoints
 
-Base URL desplegada: `https://agrifos-api.onrender.com` (sin prefijo `/v1`). La especificación completa y ejecutable está en [Swagger UI](https://agrifos-api.onrender.com/docs).
+Base URL desplegada: `https://agrifos-api.onrender.com`. La especificación completa y ejecutable está en [Swagger UI](https://agrifos-api.onrender.com/docs).
 
 Los objetos de respuesta mostrados son abreviados para facilitar la lectura; Swagger contiene el contrato completo.
 

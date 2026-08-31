@@ -1,10 +1,27 @@
 import uuid
 
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import FertilizationPlan, FertilizationPlanItem
 from app.schemas.fertilization import FertilizationRecommendationRead
 from app.services.agronomic_config import AgronomicEngineConfig
+
+
+async def get_fertilization_plan_by_fingerprint(
+    db: AsyncSession,
+    *,
+    parcel_id: uuid.UUID,
+    input_fingerprint: str,
+) -> FertilizationPlan | None:
+    result = await db.execute(
+        select(FertilizationPlan).where(
+            FertilizationPlan.parcel_id == parcel_id,
+            FertilizationPlan.input_fingerprint == input_fingerprint,
+        )
+    )
+    return result.scalar_one_or_none()
 
 
 async def create_fertilization_plan(
@@ -13,6 +30,7 @@ async def create_fertilization_plan(
     recommendation: FertilizationRecommendationRead,
     config: AgronomicEngineConfig,
     method: str,
+    input_fingerprint: str,
     reading_id: uuid.UUID | None = None,
     lab_analysis_id: uuid.UUID | None = None,
 ) -> FertilizationPlan:
@@ -22,6 +40,8 @@ async def create_fertilization_plan(
         lab_analysis_id=lab_analysis_id,
         reference_set_id=config.reference_set_id,
         method=method,
+        input_fingerprint=input_fingerprint,
+        recommendation_snapshot=recommendation.model_dump(mode="json"),
         target_green_kg_ha=recommendation.target_green_kg_ha,
         plant_age_months=recommendation.plant_age_months,
         life_stage=recommendation.life_stage.value,
@@ -37,7 +57,18 @@ async def create_fertilization_plan(
         assumptions=list(recommendation.assumptions),
     )
     db.add(plan)
-    await db.flush()
+    try:
+        await db.flush()
+    except IntegrityError:
+        await db.rollback()
+        existing = await get_fertilization_plan_by_fingerprint(
+            db,
+            parcel_id=recommendation.parcel_id,
+            input_fingerprint=input_fingerprint,
+        )
+        if existing is not None:
+            return existing
+        raise
 
     for scenario in recommendation.fertilizer_scenarios:
         for application in scenario.application_schedule:
