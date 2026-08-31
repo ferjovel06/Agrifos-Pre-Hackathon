@@ -69,6 +69,7 @@ class InputDataCard extends StatelessWidget {
                 ),
               ),
               Container(
+                constraints: const BoxConstraints(maxWidth: 120),
                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF1F5F0),
@@ -76,6 +77,8 @@ class InputDataCard extends StatelessWidget {
                 ),
                 child: Text(
                   parcelName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: _brandGreen,
                     fontSize: 11,

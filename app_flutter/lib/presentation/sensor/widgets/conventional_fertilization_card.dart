@@ -7,12 +7,13 @@ class ConventionalFertilizationCard extends StatelessWidget {
     super.key,
     required this.scenario,
     this.isLoading = false,
-    this.emptyMessage =
-        'Captura una muestra para generar las fuentes y dosis.',
+    this.onViewDetails,
+    this.emptyMessage = 'Captura una muestra para generar las fuentes y dosis.',
   });
 
   final FertilizerScenario? scenario;
   final bool isLoading;
+  final VoidCallback? onViewDetails;
   final String emptyMessage;
 
   static const _brown = Color(0xFF472319);
@@ -94,6 +95,14 @@ class ConventionalFertilizationCard extends StatelessWidget {
               label: 'FUENTE DE POTASIO',
               product: currentScenario.sourceFor('K2O'),
             ),
+            if (onViewDetails != null) ...[
+              const SizedBox(height: 18),
+              OutlinedButton.icon(
+                onPressed: onViewDetails,
+                icon: const Icon(Icons.description_outlined),
+                label: const Text('Ver plan completo'),
+              ),
+            ],
           ],
         ],
       ),
@@ -154,12 +163,11 @@ class _NutrientRow extends StatelessWidget {
             const SizedBox(width: 12),
             Text.rich(
               TextSpan(
-                text: dose == null ? '0.0' : dose.kgPerHectare.toStringAsFixed(1),
+                text: dose == null
+                    ? '0.0'
+                    : dose.kgPerHectare.toStringAsFixed(1),
                 children: const [
-                  TextSpan(
-                    text: ' kg/ha',
-                    style: TextStyle(fontSize: 13),
-                  ),
+                  TextSpan(text: ' kg/ha', style: TextStyle(fontSize: 13)),
                 ],
               ),
               style: const TextStyle(

@@ -24,6 +24,23 @@ async def get_fertilization_plan_by_fingerprint(
     return result.scalar_one_or_none()
 
 
+async def get_latest_fertilization_plan(
+    db: AsyncSession,
+    *,
+    parcel_id: uuid.UUID,
+) -> FertilizationPlan | None:
+    result = await db.execute(
+        select(FertilizationPlan)
+        .where(
+            FertilizationPlan.parcel_id == parcel_id,
+            FertilizationPlan.recommendation_snapshot.is_not(None),
+        )
+        .order_by(FertilizationPlan.generated_at.desc(), FertilizationPlan.id.desc())
+        .limit(1)
+    )
+    return result.scalar_one_or_none()
+
+
 async def create_fertilization_plan(
     db: AsyncSession,
     *,

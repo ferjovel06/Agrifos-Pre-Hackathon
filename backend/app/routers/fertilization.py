@@ -1,9 +1,14 @@
+import uuid
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import has_global_read_access, require_write_access
+from app.core.auth import (
+    get_current_user,
+    has_global_read_access,
+    require_write_access,
+)
 from app.db.session import get_db
 from app.models import User
 from app.repositories import fertilization_plan as fertilization_plan_repo
@@ -70,6 +75,55 @@ def _lab_analysis_fingerprint_data(analysis) -> dict:
     }
 
 
+@router.get(
+    "/plans/latest",
+    response_model=FertilizationRecommendationRead | None,
+)
+async def get_latest_plan(
+    parcel_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    parcel = await parcel_repo.get_parcel(db, parcel_id)
+    if parcel is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Parcel not found.",
+        )
+    if (
+        not has_global_read_access(current_user)
+        and parcel.farm.user_id != current_user.id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions.",
+        )
+    plan = await fertilization_plan_repo.get_latest_fertilization_plan(
+        db,
+        parcel_id=parcel_id,
+    )
+    if plan is None:
+        return None
+    recommendation = FertilizationRecommendationRead.model_validate(
+        plan.recommendation_snapshot
+    )
+    source_recorded_at = None
+    if getattr(plan, "reading_id", None) is not None:
+        reading = await reading_repo.get_reading(db, plan.reading_id)
+        source_recorded_at = reading.recorded_at if reading is not None else None
+    elif getattr(plan, "lab_analysis_id", None) is not None:
+        analysis = await lab_analysis_repo.get_lab_analysis(db, plan.lab_analysis_id)
+        if analysis is not None:
+            source_recorded_at = analysis.sampled_at or analysis.recorded_at
+    return recommendation.model_copy(
+        update={
+            "plan_id": plan.id,
+            "source_type": getattr(plan, "method", None),
+            "source_recorded_at": source_recorded_at,
+        }
+    )
+
+
 @router.post("/recommendations", response_model=FertilizationRecommendationRead)
 async def create_recommendation(
     payload: FertilizationRecommendationRequest,
@@ -105,6 +159,7 @@ async def create_recommendation(
         config = await get_active_engine_config(db, parcel.crop_id)
         resolved_payload = payload
         source_data = None
+        source_recorded_at = None
         if payload.reading_id is not None:
             reading = await reading_repo.get_reading(db, payload.reading_id)
             if reading is None:
@@ -127,6 +182,7 @@ async def create_recommendation(
                 "temperature": reading.temperature,
                 "humidity": reading.humidity,
             }
+            source_recorded_at = reading.recorded_at
         if payload.lab_analysis_id is not None:
             analysis = await lab_analysis_repo.get_lab_analysis(
                 db,
@@ -149,6 +205,12 @@ async def create_recommendation(
                 }
             )
             source_data = _lab_analysis_fingerprint_data(analysis)
+            source_recorded_at = analysis.sampled_at or analysis.recorded_at
+        method = (
+            "laboratory"
+            if payload.lab_analysis_id is not None
+            else payload.soil.source.value
+        )
         plant_age_months = _age_in_months(parcel.planting_date, date.today())
         input_fingerprint = build_fertilization_input_fingerprint(
             {
@@ -186,7 +248,13 @@ async def create_recommendation(
             cached = FertilizationRecommendationRead.model_validate(
                 existing_plan.recommendation_snapshot
             )
-            return cached.model_copy(update={"plan_id": existing_plan.id})
+            return cached.model_copy(
+                update={
+                    "plan_id": existing_plan.id,
+                    "source_type": getattr(existing_plan, "method", method),
+                    "source_recorded_at": source_recorded_at,
+                }
+            )
         recommendation = calculate_fertilization_recommendation(
             resolved_payload,
             config=config,
@@ -197,11 +265,6 @@ async def create_recommendation(
             plant_age_months=plant_age_months,
             area_hectares=parcel.area_hectares,
             plants_per_hectare=parcel.plants_per_hectare,
-        )
-        method = (
-            "laboratory"
-            if payload.lab_analysis_id is not None
-            else payload.soil.source.value
         )
         plan = await fertilization_plan_repo.create_fertilization_plan(
             db,
@@ -215,7 +278,13 @@ async def create_recommendation(
         persisted = FertilizationRecommendationRead.model_validate(
             plan.recommendation_snapshot
         )
-        return persisted.model_copy(update={"plan_id": plan.id})
+        return persisted.model_copy(
+            update={
+                "plan_id": plan.id,
+                "source_type": method,
+                "source_recorded_at": source_recorded_at,
+            }
+        )
     except FertilizationInputError as error:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
