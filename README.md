@@ -32,10 +32,10 @@ Sistema de asistencia agrícola compuesto por una plataforma digital interactiva
 2. **App (Flutter):** detecta el sensor conectado por OTG, permite capturar análisis de laboratorio y consume la API REST. Supabase Auth gestiona registro, confirmación de correo, sesiones, recuperación de contraseña y MFA TOTP. Las pestañas de planificación y finanzas conservan por ahora una interfaz de demostración.
 3. **Backend (FastAPI):** valida los JWT de Supabase, aplica permisos por rol, persiste la información en PostgreSQL y expone los servicios de diagnóstico, fertilización, fenología y clima. Los modelos financieros existen, pero su router todavía no está publicado por la API.
 4. **Servicio externo de clima:** proveedor meteorológico de terceros consultado por el backend para generar alertas predictivas (lluvias, canículas, olas de calor).
-5. **Base de datos (PostgreSQL):** modelo relacional de 19 entidades — ver [Modelo de datos](#modelo-de-datos) para el detalle completo.
+5. **Base de datos (PostgreSQL):** modelo relacional de 25 entidades, incluidas referencias agronómicas versionadas consumidas por los motores de diagnóstico y fertilización — ver [Modelo de datos](#modelo-de-datos) para el detalle completo.
 
 ## Modelo de datos
-El diagrama ER completo (19 entidades, 25 relaciones) está versionado en [`docs/agrifos_er_diagram.mmd`](docs/agrifos_er_diagram.mmd) (formato [Mermaid](https://mermaid.live)).
+El diagrama ER completo (25 entidades, 38 relaciones) está versionado en [`docs/agrifos_er_diagram.mmd`](docs/agrifos_er_diagram.mmd) (formato [Mermaid](https://mermaid.live)).
 
 **Grupos de entidades:**
 
@@ -44,7 +44,7 @@ El diagrama ER completo (19 entidades, 25 relaciones) está versionado en [`docs
 | Usuarios y estructura de finca | `User`, `Farm`, `Parcel`, `Crop`, `Variety` |
 | Datos de suelo | `Reading` (sensor OTG), `LabAnalysis` (laboratorio) |
 | Fenología | `PhenologicalStage` — catálogo e instancia por parcela en una sola tabla, vía relación recursiva `template_id` |
-| Referencia del motor de fertilización | `OptimalRequirement`, `ExtractionIndex`, `VarietyFactor`, `StageFactor`, `SoilType`, `EfficiencyFactor` |
+| Referencias agronómicas versionadas | `AgronomicReferenceSet`, `SoilReferenceRange`, `FertilizerProduct`, `FertilizerProductNutrient`, `ApplicationScheduleRule`, `AgronomicParameter`, `OptimalRequirement`, `ExtractionIndex`, `VarietyFactor`, `StageFactor`, `SoilType`, `EfficiencyFactor` |
 | Resultado del motor | `FertilizationPlan` — ligado opcionalmente a `Reading` **o** `LabAnalysis` (nunca ambos; restricción a nivel de `CHECK` / capa de aplicación, no expresable solo con cardinalidad) |
 | Alertas | `Alert` — `farm_id` obligatorio (alcance por defecto: toda la finca, ej. riesgo climático), `parcel_id` opcional (acota a una parcela, ej. alertas fenológicas) |
 | Finanzas | `Expense`, `Income`, `Production` (una `Production` puede agregarse a un `Income` compartido con otras) |
@@ -96,7 +96,7 @@ Los detalles completos del motor agronómico se distribuyen en los documentos de
 
 ## Motor de Cálculo
 
-El motor agronómico combina los datos del suelo con el cultivo, la variedad, la etapa fenológica, la densidad de siembra y el rendimiento objetivo para estimar el balance nutricional de N, P y K.
+El motor agronómico combina los datos del suelo con el cultivo, la variedad, la etapa fenológica, la densidad de siembra y el rendimiento objetivo para estimar el balance nutricional de N, P y K. Sus rangos, parámetros, productos, factores y calendarios activos se cargan desde referencias agronómicas versionadas en PostgreSQL; el backend conserva temporalmente la configuración inmutable para evitar consultas repetidas.
 
 - **Entradas:** lecturas del sensor 7-en-1 o resultados de laboratorio, datos de la parcela y contexto fenológico.
 - **Proceso:** normalización de unidades, evaluación del aporte del suelo, estimación del déficit y ajuste por eficiencia agronómica.

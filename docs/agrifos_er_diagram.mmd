@@ -15,6 +15,19 @@ erDiagram
   VARIETY ||--o{ VARIETY_FACTOR : adjusts
   PHENOLOGICAL_STAGE ||--o{ STAGE_FACTOR : adjusts
   SOIL_TYPE ||--o{ EFFICIENCY_FACTOR : defines
+  AGRONOMIC_REFERENCE_SET ||--o{ SOIL_REFERENCE_RANGE : versions
+  AGRONOMIC_REFERENCE_SET ||--o{ FERTILIZER_PRODUCT : versions
+  AGRONOMIC_REFERENCE_SET ||--o{ APPLICATION_SCHEDULE_RULE : versions
+  AGRONOMIC_REFERENCE_SET ||--o{ AGRONOMIC_PARAMETER : versions
+  AGRONOMIC_REFERENCE_SET o|--o{ OPTIMAL_REQUIREMENT : versions
+  AGRONOMIC_REFERENCE_SET o|--o{ EXTRACTION_INDEX : versions
+  AGRONOMIC_REFERENCE_SET o|--o{ VARIETY_FACTOR : versions
+  AGRONOMIC_REFERENCE_SET o|--o{ STAGE_FACTOR : versions
+  AGRONOMIC_REFERENCE_SET o|--o{ EFFICIENCY_FACTOR : versions
+  CROP ||--o{ SOIL_REFERENCE_RANGE : defines
+  CROP ||--o{ APPLICATION_SCHEDULE_RULE : schedules
+  CROP ||--o{ AGRONOMIC_PARAMETER : configures
+  FERTILIZER_PRODUCT ||--|{ FERTILIZER_PRODUCT_NUTRIENT : contains
   PARCEL ||--o{ FERTILIZATION_PLAN : generates
   READING o|--o{ FERTILIZATION_PLAN : originates
   LAB_ANALYSIS o|--o{ FERTILIZATION_PLAN : originates
@@ -110,6 +123,7 @@ erDiagram
   }
   OPTIMAL_REQUIREMENT {
     uuid id PK
+    uuid reference_set_id FK
     uuid crop_id FK
     uuid stage_id FK
     string nutrient
@@ -118,18 +132,21 @@ erDiagram
   }
   EXTRACTION_INDEX {
     uuid id PK
+    uuid reference_set_id FK
     uuid crop_id FK
     string nutrient
     float ie_value
   }
   VARIETY_FACTOR {
     uuid id PK
+    uuid reference_set_id FK
     uuid variety_id FK
     string nutrient
     float fv_factor
   }
   STAGE_FACTOR {
     uuid id PK
+    uuid reference_set_id FK
     uuid stage_id FK
     string nutrient
     float fe_factor
@@ -141,10 +158,69 @@ erDiagram
   }
   EFFICIENCY_FACTOR {
     uuid id PK
+    uuid reference_set_id FK
     uuid soil_type_id FK
     string nutrient
     float ef_min
     float ef_max
+  }
+  AGRONOMIC_REFERENCE_SET {
+    uuid id PK
+    string key
+    string version
+    string source
+    text description
+    boolean is_active
+    timestamp created_at
+  }
+  SOIL_REFERENCE_RANGE {
+    uuid id PK
+    uuid reference_set_id FK
+    uuid crop_id FK
+    string parameter
+    string label_es
+    string unit
+    text method
+    string confidence
+    float deficient_below
+    float optimal_min
+    float optimal_max
+    float critical_above
+    boolean high_is_generally_favorable
+    text notes
+  }
+  FERTILIZER_PRODUCT {
+    uuid id PK
+    uuid reference_set_id FK
+    string key
+    string name
+    boolean is_low_chloride
+    boolean is_active
+  }
+  FERTILIZER_PRODUCT_NUTRIENT {
+    uuid id PK
+    uuid product_id FK
+    string nutrient
+    float fraction
+  }
+  APPLICATION_SCHEDULE_RULE {
+    uuid id PK
+    uuid reference_set_id FK
+    uuid crop_id FK
+    string life_stage
+    int sequence
+    string moment
+    int month_after_planting
+    float fraction
+  }
+  AGRONOMIC_PARAMETER {
+    uuid id PK
+    uuid reference_set_id FK
+    uuid crop_id FK
+    string key
+    float value
+    string unit
+    text notes
   }
   FERTILIZATION_PLAN {
     uuid id PK
