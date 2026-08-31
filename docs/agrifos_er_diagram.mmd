@@ -6,14 +6,14 @@ erDiagram
   CROP ||--o{ VARIETY : has
   PARCEL ||--o{ READING : records
   PARCEL ||--o{ LAB_ANALYSIS : records
-  PHENOLOGICAL_STAGE o|--o{ PHENOLOGICAL_STAGE : "is instance of"
-  CROP ||--o{ PHENOLOGICAL_STAGE : "defines stages"
-  PARCEL o|--o{ PHENOLOGICAL_STAGE : schedules
+  CROP ||--o{ PHENOLOGICAL_STAGE_TEMPLATE : "defines stages"
+  PHENOLOGICAL_STAGE_TEMPLATE ||--o{ PARCEL_PHENOLOGICAL_STAGE : instantiates
+  PARCEL ||--o{ PARCEL_PHENOLOGICAL_STAGE : schedules
   CROP ||--o{ OPTIMAL_REQUIREMENT : sets
-  PHENOLOGICAL_STAGE ||--o{ OPTIMAL_REQUIREMENT : "applies at"
+  PHENOLOGICAL_STAGE_TEMPLATE ||--o{ OPTIMAL_REQUIREMENT : "applies at"
   CROP ||--o{ EXTRACTION_INDEX : defines
   VARIETY ||--o{ VARIETY_FACTOR : adjusts
-  PHENOLOGICAL_STAGE ||--o{ STAGE_FACTOR : adjusts
+  PHENOLOGICAL_STAGE_TEMPLATE ||--o{ STAGE_FACTOR : adjusts
   SOIL_TYPE ||--o{ EFFICIENCY_FACTOR : defines
   AGRONOMIC_REFERENCE_SET ||--o{ SOIL_REFERENCE_RANGE : versions
   AGRONOMIC_REFERENCE_SET ||--o{ FERTILIZER_PRODUCT : versions
@@ -113,14 +113,17 @@ erDiagram
     string lab
     timestamp recorded_at
   }
-  PHENOLOGICAL_STAGE {
+  PHENOLOGICAL_STAGE_TEMPLATE {
     uuid id PK
-    uuid template_id FK
     uuid crop_id FK
-    uuid parcel_id FK
     string name
     int stage_order
     int duration_days
+  }
+  PARCEL_PHENOLOGICAL_STAGE {
+    uuid id PK
+    uuid template_id FK
+    uuid parcel_id FK
     date estimated_date
     date actual_date
   }

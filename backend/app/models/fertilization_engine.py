@@ -16,14 +16,14 @@ class OptimalRequirement(Base, UUIDPKMixin):
 
     crop_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("crops.id"), nullable=False)
     stage_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("phenological_stages.id"), nullable=False
+        ForeignKey("phenological_stage_templates.id"), nullable=False
     )
     nutrient: Mapped[str] = mapped_column(String(30))
     min_value: Mapped[float] = mapped_column(Float)
     max_value: Mapped[float] = mapped_column(Float)
 
     crop: Mapped["Crop"] = relationship(back_populates="optimal_requirements")
-    stage: Mapped["PhenologicalStage"] = relationship(
+    stage: Mapped["PhenologicalStageTemplate"] = relationship(
         back_populates="optimal_requirements"
     )
 
@@ -69,12 +69,14 @@ class StageFactor(Base, UUIDPKMixin):
     )
 
     stage_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("phenological_stages.id"), nullable=False
+        ForeignKey("phenological_stage_templates.id"), nullable=False
     )
     nutrient: Mapped[str] = mapped_column(String(30))
     fe_factor: Mapped[float] = mapped_column(Float)
 
-    stage: Mapped["PhenologicalStage"] = relationship(back_populates="factors")
+    stage: Mapped["PhenologicalStageTemplate"] = relationship(
+        back_populates="factors"
+    )
 
 
 class SoilType(Base, UUIDPKMixin):

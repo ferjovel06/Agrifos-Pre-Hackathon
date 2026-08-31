@@ -13,9 +13,8 @@ class Crop(Base, UUIDPKMixin, TimestampMixin):
 
     varieties: Mapped[list["Variety"]] = relationship(back_populates="crop")
     parcels: Mapped[list["Parcel"]] = relationship(back_populates="crop")
-    stage_templates: Mapped[list["PhenologicalStage"]] = relationship(
-        back_populates="crop",
-        foreign_keys="PhenologicalStage.crop_id",
+    stage_templates: Mapped[list["PhenologicalStageTemplate"]] = relationship(
+        back_populates="crop"
     )
     optimal_requirements: Mapped[list["OptimalRequirement"]] = relationship(
         back_populates="crop"

@@ -32,10 +32,10 @@ Sistema de asistencia agrícola compuesto por una plataforma digital interactiva
 2. **App (Flutter):** detecta el sensor conectado por OTG, permite capturar análisis de laboratorio y consume la API REST. Supabase Auth gestiona registro, confirmación de correo, sesiones, recuperación de contraseña y MFA TOTP. Las pestañas de planificación y finanzas conservan por ahora una interfaz de demostración.
 3. **Backend (FastAPI):** valida los JWT de Supabase, aplica permisos por rol, persiste la información en PostgreSQL y expone los servicios de diagnóstico, fertilización, fenología y clima. Los modelos financieros existen, pero su router todavía no está publicado por la API.
 4. **Servicio externo de clima:** proveedor meteorológico de terceros consultado por el backend para generar alertas predictivas (lluvias, canículas, olas de calor).
-5. **Base de datos (PostgreSQL):** modelo relacional de 26 entidades, incluidas referencias agronómicas versionadas y recomendaciones de fertilización persistidas — ver [Modelo de datos](#modelo-de-datos) para el detalle completo.
+5. **Base de datos (PostgreSQL):** modelo relacional de 27 entidades, incluidas referencias agronómicas versionadas, etapas fenológicas normalizadas y recomendaciones de fertilización persistidas — ver [Modelo de datos](#modelo-de-datos) para el detalle completo.
 
 ## Modelo de datos
-El diagrama ER completo (26 entidades, 41 relaciones) está versionado en [`docs/agrifos_er_diagram.mmd`](docs/agrifos_er_diagram.mmd) (formato [Mermaid](https://mermaid.live)).
+El diagrama ER completo (27 entidades, 41 relaciones) está versionado en [`docs/agrifos_er_diagram.mmd`](docs/agrifos_er_diagram.mmd) (formato [Mermaid](https://mermaid.live)).
 
 **Grupos de entidades:**
 
@@ -43,7 +43,7 @@ El diagrama ER completo (26 entidades, 41 relaciones) está versionado en [`docs
 |---|---|
 | Usuarios y estructura de finca | `User`, `Farm`, `Parcel`, `Crop`, `Variety` |
 | Datos de suelo | `Reading` (sensor OTG), `LabAnalysis` (laboratorio) |
-| Fenología | `PhenologicalStage` — catálogo e instancia por parcela en una sola tabla, vía relación recursiva `template_id` |
+| Fenología | `PhenologicalStageTemplate` define el ciclo estándar por cultivo y `ParcelPhenologicalStage` registra las fechas estimadas y reales de cada parcela |
 | Referencias agronómicas versionadas | `AgronomicReferenceSet`, `SoilReferenceRange`, `FertilizerProduct`, `FertilizerProductNutrient`, `ApplicationScheduleRule`, `AgronomicParameter`, `OptimalRequirement`, `ExtractionIndex`, `VarietyFactor`, `StageFactor`, `SoilType`, `EfficiencyFactor` |
 | Resultado del motor | `FertilizationPlan` y `FertilizationPlanItem` — conservan la versión del motor, la fuente, los escenarios, los productos, las dosis y el calendario de aplicación generado |
 | Alertas | `Alert` — `farm_id` obligatorio (alcance por defecto: toda la finca, ej. riesgo climático), `parcel_id` opcional (acota a una parcela, ej. alertas fenológicas) |
@@ -179,7 +179,7 @@ agrifos/
 │   │   ├── core/
 │   │   │   ├── config.py           # Carga de variables de entorno (Pydantic Settings)
 │   │   │   └── auth.py             # Validación de JWT de Supabase (get_current_user, require_role)
-│   │   ├── models/                 # User, Farm, Parcel, Crop, Variety, PhenologicalStage,
+│   │   ├── models/                 # User, Farm, Parcel, Crop, Variety, phenology templates/instances,
 │   │   │                           # Reading, LabAnalysis, OptimalRequirement, ExtractionIndex,
 │   │   │                           # VarietyFactor, StageFactor, SoilType, EfficiencyFactor,
 │   │   │                           # FertilizationPlan, Alert, Expense, Income, Production
