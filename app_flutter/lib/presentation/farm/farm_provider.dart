@@ -41,6 +41,13 @@ class FarmProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void replaceFarm(Farm updated) {
+    farms = farms
+        .map((farm) => farm.id == updated.id ? updated : farm)
+        .toList();
+    notifyListeners();
+  }
+
   void notifyParcelChanged() {
     parcelRevision++;
     notifyListeners();

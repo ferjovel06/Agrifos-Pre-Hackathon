@@ -86,4 +86,11 @@ class ParcelProvider extends ChangeNotifier {
     if (currentFarmId != null) _selectionByFarm[currentFarmId] = parcelId;
     notifyListeners();
   }
+
+  void replaceParcel(Parcel updated) {
+    parcels = parcels
+        .map((parcel) => parcel.id == updated.id ? updated : parcel)
+        .toList();
+    notifyListeners();
+  }
 }

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'farm_provider.dart';
 import 'farm_registration_screen.dart';
 import 'parcel_provider.dart';
+import 'entity_edit_screens.dart';
 
 class ParcelSelector extends StatelessWidget {
   const ParcelSelector({super.key});
@@ -28,6 +29,24 @@ class ParcelSelector extends StatelessWidget {
       children: [
         Expanded(child: _buildField(provider)),
         const SizedBox(width: 8),
+        if (provider.currentParcel != null)
+          IconButton.outlined(
+            tooltip: 'Editar parcela',
+            onPressed: () {
+              final farm = context.read<FarmProvider>().currentFarm;
+              if (farm != null) {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => ParcelEditScreen(
+                      parcel: provider.currentParcel!,
+                      farm: farm,
+                    ),
+                  ),
+                );
+              }
+            },
+            icon: const Icon(Icons.edit_outlined),
+          ),
         IconButton.filledTonal(
           key: const ValueKey('add-parcel-button'),
           tooltip: 'Agregar parcela',

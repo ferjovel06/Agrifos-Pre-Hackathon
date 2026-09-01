@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'farm_provider.dart';
 import 'farm_registration_screen.dart';
 import 'parcel_provider.dart';
+import 'entity_edit_screens.dart';
 
 /// Chooses the farm used by all farm-scoped sections of the application.
 class FarmSelector extends StatelessWidget {
@@ -57,6 +58,15 @@ class FarmSelector extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
+        IconButton.outlined(
+          tooltip: 'Editar finca',
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => FarmEditScreen(farm: provider.currentFarm!),
+            ),
+          ),
+          icon: const Icon(Icons.edit_outlined),
+        ),
         IconButton.filled(
           key: const ValueKey('add-farm-button'),
           tooltip: 'Agregar finca',
