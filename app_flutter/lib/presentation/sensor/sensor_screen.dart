@@ -481,10 +481,12 @@ class _SensorScreenState extends State<SensorScreen> {
     SensorProvider sensor,
     Parcel parcel,
   ) async {
+    final latestReadingProvider = context.read<LatestReadingProvider>();
     final parcelRevision = _loadedParcelRevision;
     if (parcelRevision == null ||
-        !_isCurrentParcelRequest(parcel.id, parcelRevision))
+        !_isCurrentParcelRequest(parcel.id, parcelRevision)) {
       return;
+    }
     if (sensor.status != SensorStatus.connected) {
       await sensor.connectAndListen();
       return;
@@ -494,7 +496,7 @@ class _SensorScreenState extends State<SensorScreen> {
     await sensor.saveCurrentReading(parcel.id);
     if (sensor.saveStatus == SaveStatus.saved &&
         _isCurrentParcelRequest(parcel.id, parcelRevision)) {
-      context.read<LatestReadingProvider>().fetchLatest(parcel.id);
+      latestReadingProvider.fetchLatest(parcel.id);
       final diagnosis = sensor.savedDiagnosis;
       final savedReading = sensor.savedReading;
       final reading = sensor.lastReading;
