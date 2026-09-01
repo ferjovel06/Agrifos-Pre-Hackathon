@@ -8,6 +8,7 @@ backend/.fastapicloud/
 backend/*.pyc
 backend/.env
 backend/.pytest_cache/
+backend/.uv-*/
 
 # Frontend
 app_flutter/build/

@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../data/api/parcel_repository.dart';
 import '../auth/auth_provider.dart';
 import '../farm/farm_provider.dart';
 import '../farm/farm_registration_screen.dart';
+import '../farm/parcel_provider.dart';
 import '../sensor/sensor_provider.dart';
 import 'latest_reading_provider.dart';
 import 'weather_provider.dart';
 import 'widgets/last_reading_card.dart';
+import 'widgets/farm_parcel_selector_card.dart';
 import 'widgets/no_farm_state.dart';
 import 'widgets/weather_conditions_card.dart';
 
@@ -24,8 +25,10 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final _parcelRepository = ParcelRepository();
   String? _currentParcelId;
+  String? _loadingParcelId;
+  String? _loadedFarmId;
+  String? _loadingFarmId;
   bool _isLoadingParcels = false;
 
   @override
@@ -63,12 +66,26 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
+    await _loadFarmData(farmId, forceParcels: force);
+  }
+
+  Future<void> _loadFarmData(String farmId, {bool forceParcels = false}) async {
+    if (_loadingFarmId == farmId) return;
+    _loadingFarmId = farmId;
+    if (mounted) setState(() => _isLoadingParcels = true);
+
+    final readingProvider = context.read<LatestReadingProvider>();
+    final weatherProvider = context.read<WeatherProvider>();
+    final parcelProvider = context.read<ParcelProvider>();
     final weatherFuture = weatherProvider.fetchForecast(farmId);
 
     try {
-      final parcels = await _parcelRepository.getParcels(farmId);
-      if (!mounted) return;
-      _currentParcelId = parcels.isEmpty ? null : parcels.first.id;
+      await parcelProvider.loadForFarm(farmId, force: forceParcels);
+      if (!mounted || context.read<FarmProvider>().selectedFarmId != farmId) {
+        return;
+      }
+      _loadedFarmId = farmId;
+      _currentParcelId = parcelProvider.selectedParcelId;
       setState(() => _isLoadingParcels = false);
       if (_currentParcelId == null) {
         readingProvider.clear();
@@ -77,10 +94,30 @@ class _HomeScreenState extends State<HomeScreen> {
       }
       await weatherFuture;
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || context.read<FarmProvider>().selectedFarmId != farmId) {
+        return;
+      }
+      _loadedFarmId = farmId;
       _currentParcelId = null;
       setState(() => _isLoadingParcels = false);
       readingProvider.clear();
+    } finally {
+      if (_loadingFarmId == farmId) _loadingFarmId = null;
+    }
+  }
+
+  Future<void> _loadSelectedParcel(String parcelId) async {
+    if (_loadingParcelId == parcelId) return;
+    _loadingParcelId = parcelId;
+    try {
+      await context.read<LatestReadingProvider>().fetchLatest(parcelId);
+      if (!mounted ||
+          context.read<ParcelProvider>().selectedParcelId != parcelId) {
+        return;
+      }
+      setState(() => _currentParcelId = parcelId);
+    } finally {
+      if (_loadingParcelId == parcelId) _loadingParcelId = null;
     }
   }
 
@@ -106,6 +143,31 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final farm = context.watch<FarmProvider>();
+    final parcel = context.watch<ParcelProvider>();
+    final selectedFarmId = farm.selectedFarmId;
+    if (farm.status == FarmStatus.hasFarm &&
+        selectedFarmId != null &&
+        selectedFarmId != _loadedFarmId &&
+        selectedFarmId != _loadingFarmId) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted &&
+            context.read<FarmProvider>().selectedFarmId == selectedFarmId) {
+          _loadFarmData(selectedFarmId);
+        }
+      });
+    }
+    final selectedParcelId = parcel.selectedParcelId;
+    if (selectedParcelId != null &&
+        selectedParcelId != _currentParcelId &&
+        selectedParcelId != _loadingParcelId) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted &&
+            context.read<ParcelProvider>().selectedParcelId ==
+                selectedParcelId) {
+          _loadSelectedParcel(selectedParcelId);
+        }
+      });
+    }
     return _buildBody(farm);
   }
 
@@ -121,32 +183,33 @@ class _HomeScreenState extends State<HomeScreen> {
       case FarmStatus.noFarm:
         return NoFarmState(onRegisterTap: _openFarmRegistration);
       case FarmStatus.hasFarm:
-        if (_isLoadingParcels) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (_currentParcelId == null) {
-          return _NoParcelState(onRegisterTap: _openParcelRegistration);
-        }
-        return _Dashboard(
-          onRetryWeather: () {
-            final farmId = farm.currentFarm?.id;
-            if (farmId != null) {
-              context.read<WeatherProvider>().fetchForecast(
-                farmId,
-                force: true,
-              );
-            }
-          },
-          onRetryReading: () {
-            final parcelId = _currentParcelId;
-            if (parcelId == null) {
-              _loadHome(force: true);
-            } else {
-              context.read<LatestReadingProvider>().fetchLatest(parcelId);
-            }
-          },
-        );
+        return _buildFarmContent(farm);
     }
+  }
+
+  Widget _buildFarmContent(FarmProvider farm) {
+    if (_isLoadingParcels) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_currentParcelId == null) {
+      return _NoParcelState(onRegisterTap: _openParcelRegistration);
+    }
+    return _Dashboard(
+      onRetryWeather: () {
+        final farmId = farm.currentFarm?.id;
+        if (farmId != null) {
+          context.read<WeatherProvider>().fetchForecast(farmId, force: true);
+        }
+      },
+      onRetryReading: () {
+        final parcelId = _currentParcelId;
+        if (parcelId == null) {
+          _loadHome(force: true);
+        } else {
+          context.read<LatestReadingProvider>().fetchLatest(parcelId);
+        }
+      },
+    );
   }
 }
 
@@ -223,6 +286,8 @@ class _Dashboard extends StatelessWidget {
     return SingleChildScrollView(
       child: Column(
         children: [
+          const FarmParcelSelectorCard(),
+          const SizedBox(height: 14),
           WeatherConditionsCard(
             forecast: weather.forecast,
             isLoading:
