@@ -59,23 +59,26 @@ def calculate(request, *, plant_age_months=40):
 
 
 class FertilizationServiceTests(unittest.TestCase):
-    def test_returns_young_plan_during_nursery_and_establishment(self):
+    def test_returns_guidance_without_field_doses_before_levante(self):
         request = make_request(target_yield=None)
 
-        nursery = calculate(request, plant_age_months=8)
+        initial_nursery = calculate(request, plant_age_months=3)
+        advanced_nursery = calculate(request, plant_age_months=8)
         establishment = calculate(request, plant_age_months=10)
 
-        self.assertEqual(nursery.recommendation_status, "young_crop_reference")
-        self.assertEqual(
-            establishment.recommendation_status,
-            "young_crop_reference",
-        )
-        self.assertTrue(nursery.fertilizer_scenarios)
-        self.assertTrue(establishment.fertilizer_scenarios)
-        self.assertTrue(any("vivero" in item.lower() for item in nursery.warnings))
-        self.assertTrue(
-            any("establecimiento" in item.lower() for item in establishment.warnings)
-        )
+        self.assertEqual(initial_nursery.recommendation_status, "initial_nursery_guidance")
+        self.assertEqual(advanced_nursery.recommendation_status, "advanced_nursery_guidance")
+        self.assertEqual(establishment.recommendation_status, "establishment_guidance")
+        for result in (initial_nursery, advanced_nursery, establishment):
+            self.assertEqual(result.nutrient_requirements, [])
+            self.assertEqual(result.fertilizer_scenarios, [])
+
+    def test_starts_the_documented_young_crop_plan_at_levante(self):
+        result = calculate(make_request(target_yield=None), plant_age_months=13)
+
+        self.assertEqual(result.recommendation_status, "young_crop_reference")
+        self.assertTrue(result.nutrient_requirements)
+        self.assertTrue(result.fertilizer_scenarios)
 
     def test_uses_documented_yield_example_during_productive_transition(self):
         transition = calculate(make_request(target_yield=20), plant_age_months=32)
