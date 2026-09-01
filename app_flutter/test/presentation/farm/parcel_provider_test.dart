@@ -50,6 +50,21 @@ void main() {
     expect(provider.status, ParcelStatus.noParcel);
     expect(provider.currentParcel, isNull);
   });
+
+  test('increments data revision when the selected parcel is edited', () async {
+    final original = _parcel('parcel-1', 'Lote Norte');
+    final provider = ParcelProvider(
+      parcelRepository: _FakeParcelRepository({
+        'farm-1': [original],
+      }),
+    );
+    await provider.loadForFarm('farm-1');
+
+    provider.replaceParcel(_parcel('parcel-1', 'Lote Actualizado'));
+
+    expect(provider.dataRevision, 1);
+    expect(provider.currentParcel?.name, 'Lote Actualizado');
+  });
 }
 
 class _FakeParcelRepository extends ParcelRepository {

@@ -19,6 +19,7 @@ class ParcelProvider extends ChangeNotifier {
   String? farmId;
   String? selectedParcelId;
   String? errorMessage;
+  int dataRevision = 0;
 
   Parcel? get currentParcel {
     final selectedId = selectedParcelId;
@@ -91,6 +92,9 @@ class ParcelProvider extends ChangeNotifier {
     parcels = parcels
         .map((parcel) => parcel.id == updated.id ? updated : parcel)
         .toList();
+    if (selectedParcelId == updated.id) {
+      dataRevision++;
+    }
     notifyListeners();
   }
 }
