@@ -22,7 +22,7 @@ from app.services.agronomic_config import (
 )
 
 
-ENGINE_VERSION = "coffee-fertilization-1.0.0"
+ENGINE_VERSION = "coffee-fertilization-1.0.1"
 RECOMMENDATION_STATUS = "decision_support"
 
 class FertilizationInputError(ValueError):
@@ -490,6 +490,53 @@ def calculate_fertilization_recommendation(
             "Electrical conductivity is too high for an automatic fertilizer plan."
         )
 
+    if plant_age_months <= 12:
+        if plant_age_months <= 3:
+            status = "initial_nursery_guidance"
+            warning = (
+                "En vivero inicial no se emite una dosis productiva de campo. "
+                "El manejo nutricional debe realizarse en el sustrato bajo "
+                "supervisión técnica."
+            )
+        elif plant_age_months <= 8:
+            status = "advanced_nursery_guidance"
+            warning = (
+                "En vivero avanzado no se reutiliza el plan de levante. "
+                "Fraccionar cualquier manejo del sustrato y vigilar la "
+                "conductividad eléctrica."
+            )
+        else:
+            status = "establishment_guidance"
+            warning = (
+                "Durante el establecimiento no se emite todavía el plan "
+                "acumulado de levante; priorizar humedad adecuada y fósforo "
+                "de arranque bajo supervisión técnica."
+            )
+
+        return FertilizationRecommendationRead(
+            parcel_id=request.parcel_id,
+            crop=crop_name,
+            variety=variety_name,
+            plant_age_months=plant_age_months,
+            life_stage=life_stage,
+            fruit_stage=request.fruit_stage,
+            target_green_kg_ha=0,
+            engine_version=ENGINE_VERSION,
+            recommendation_status=status,
+            nutrient_requirements=[],
+            fertilizer_scenarios=[],
+            limiting_nutrients=[],
+            warnings=[warning],
+            assumptions=[
+                "La etapa aún no es elegible para una dosis productiva de campo.",
+                (
+                    f"Referencia: {config.reference_key} "
+                    f"v{config.reference_version}; fuente: "
+                    f"{config.reference_source}."
+                ),
+            ],
+        )
+
     if plant_age_months <= 24:
         young_scenario, nutrient_rows = _young_crop_scenario(
             request,
@@ -511,22 +558,6 @@ def calculate_fertilization_recommendation(
             "Revisar las aplicaciones ya realizadas antes de usar el plan.",
             "El plan se distribuye entre los meses 2, 6, 10, 14 y 18.",
         ]
-        if plant_age_months <= 3:
-            warnings.insert(
-                0,
-                "En vivero inicial, manejar estas aplicaciones en el sustrato; no corresponden a una dosis productiva de campo.",
-            )
-        elif plant_age_months <= 8:
-            warnings.insert(
-                0,
-                "En vivero avanzado, fraccionar los nutrientes y vigilar la conductividad eléctrica.",
-            )
-        elif plant_age_months <= 12:
-            warnings.insert(
-                0,
-                "En establecimiento, priorizar humedad adecuada y fósforo de arranque.",
-            )
-
         return FertilizationRecommendationRead(
             parcel_id=request.parcel_id,
             crop=crop_name,
