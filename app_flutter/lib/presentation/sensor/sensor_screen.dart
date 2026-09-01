@@ -12,6 +12,7 @@ import '../../domain/entities/parcel.dart';
 import '../../domain/entities/phenological_stage.dart';
 import '../../domain/entities/sensor_diagnostic.dart';
 import '../farm/farm_provider.dart';
+import '../farm/parcel_provider.dart';
 import '../fertilization/fertilization_plan_screen.dart';
 import '../home/latest_reading_provider.dart';
 import '../lab_analysis/lab_analysis_screen.dart';
@@ -40,8 +41,7 @@ class _SensorScreenState extends State<SensorScreen> {
   String? _stageName;
   List<PhenologicalStageTemplate> _stageTemplates = const [];
   int? _currentStageOrder;
-  String? _loadedFarmId;
-  int? _loadedParcelRevision;
+  String? _loadedParcelId;
   String? _parcelError;
   bool _isLoadingParcel = false;
   bool _isLoadingFertilization = false;
@@ -56,51 +56,80 @@ class _SensorScreenState extends State<SensorScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final farmProvider = context.watch<FarmProvider>();
-    final farmId = farmProvider.currentFarm?.id;
-    final parcelRevision = farmProvider.parcelRevision;
-    if (farmId != null &&
-        (farmId != _loadedFarmId || parcelRevision != _loadedParcelRevision)) {
-      _loadedFarmId = farmId;
-      _loadedParcelRevision = parcelRevision;
+    final parcelProvider = context.watch<ParcelProvider>();
+    final parcel = parcelProvider.currentParcel;
+    if (parcel != null && parcel.id != _loadedParcelId) {
+      _loadedParcelId = parcel.id;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _loadParcelData(farmId);
+        if (mounted) _loadParcelData(parcel);
+      });
+    } else if (parcel == null &&
+        parcelProvider.status == ParcelStatus.loading &&
+        _loadedParcelId != null) {
+      _loadedParcelId = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _resetParcelForLoading();
+      });
+    } else if (parcel == null &&
+        parcelProvider.status == ParcelStatus.noParcel &&
+        (_loadedParcelId != null || _parcelError == null)) {
+      _loadedParcelId = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _clearParcel();
       });
     }
   }
 
-  Future<void> _loadParcelData(String farmId) async {
+  void _resetParcelForLoading() {
+    setState(() {
+      _parcel = null;
+      _cropName = null;
+      _varietyName = null;
+      _stageName = null;
+      _stageTemplates = const [];
+      _currentStageOrder = null;
+      _labAnalyses = const [];
+      _fertilizationRecommendation = null;
+      _parcelError = null;
+      _isLoadingParcel = true;
+    });
+  }
+
+  void _clearParcel() {
+    setState(() {
+      _parcel = null;
+      _cropName = null;
+      _varietyName = null;
+      _stageName = null;
+      _stageTemplates = const [];
+      _currentStageOrder = null;
+      _labAnalyses = const [];
+      _fertilizationRecommendation = null;
+      _labAnalysesError = null;
+      _isLoadingParcel = false;
+      _parcelError = 'Registra una parcela antes de realizar un diagnóstico.';
+    });
+  }
+
+  Future<void> _loadParcelData(Parcel parcel) async {
     setState(() {
       _isLoadingParcel = true;
       _parcelError = null;
+      _parcel = null;
+      _cropName = null;
+      _varietyName = null;
+      _stageName = null;
+      _stageTemplates = const [];
+      _currentStageOrder = null;
+      _labAnalyses = const [];
+      _fertilizationRecommendation = null;
     });
 
     try {
-      final parcelsFuture = _parcelRepository.getParcels(farmId);
       final cropsFuture = _parcelRepository.getCrops();
-      final parcels = await parcelsFuture;
       final crops = await cropsFuture;
-      if (!mounted || farmId != _loadedFarmId) return;
+      if (!mounted || parcel.id != _loadedParcelId) return;
 
-      if (parcels.isEmpty) {
-        setState(() {
-          _parcel = null;
-          _cropName = null;
-          _varietyName = null;
-          _stageName = null;
-          _stageTemplates = const [];
-          _currentStageOrder = null;
-          _labAnalyses = const [];
-          _fertilizationRecommendation = null;
-          _labAnalysesError = null;
-          _isLoadingParcel = false;
-          _parcelError =
-              'Registra una parcela antes de realizar un diagnóstico.';
-        });
-        return;
-      }
-
-      final parcel = parcels.first;
       final varietiesFuture = _parcelRepository.getVarieties(parcel.cropId);
       final templatesFuture = _parcelRepository.getStageTemplates(
         parcel.cropId,
@@ -109,7 +138,7 @@ class _SensorScreenState extends State<SensorScreen> {
       final varieties = await varietiesFuture;
       final templates = await templatesFuture;
       final stages = await stagesFuture;
-      if (!mounted || farmId != _loadedFarmId) return;
+      if (!mounted || parcel.id != _loadedParcelId) return;
       String cropName = 'Sin especificar';
       for (final crop in crops) {
         if (crop.id == parcel.cropId) {
@@ -151,7 +180,7 @@ class _SensorScreenState extends State<SensorScreen> {
       });
       await _loadLabAnalyses(parcel.id);
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || parcel.id != _loadedParcelId) return;
       setState(() {
         _isLoadingParcel = false;
         _parcelError = 'No se pudieron cargar los datos de la parcela.';
@@ -305,7 +334,10 @@ class _SensorScreenState extends State<SensorScreen> {
   Future<void> _refresh() async {
     final farmId = context.read<FarmProvider>().currentFarm?.id;
     if (farmId == null) return;
-    await _loadParcelData(farmId);
+    final provider = context.read<ParcelProvider>();
+    await provider.loadForFarm(farmId, force: true);
+    final parcel = provider.currentParcel;
+    if (parcel != null) await _loadParcelData(parcel);
   }
 
   void _openFertilizationPlan() {
@@ -653,10 +685,13 @@ class _SensorScreenState extends State<SensorScreen> {
               style: const TextStyle(height: 1.35),
             ),
           ),
-          if (_loadedFarmId != null)
+          if (_loadedParcelId != null)
             IconButton(
               tooltip: 'Reintentar',
-              onPressed: () => _loadParcelData(_loadedFarmId!),
+              onPressed: () {
+                final parcel = context.read<ParcelProvider>().currentParcel;
+                if (parcel != null) _loadParcelData(parcel);
+              },
               icon: const Icon(Icons.refresh),
             ),
         ],

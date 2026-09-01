@@ -29,4 +29,20 @@ class FarmRepository {
     });
     return Farm.fromJson(response);
   }
+
+  Future<Farm> updateFarm({
+    required String id,
+    required String name,
+    required double areaHectares,
+    required double latitude,
+    required double longitude,
+  }) async {
+    final response = await _client.patch('/farms/$id', {
+      'name': name,
+      'area_hectares': areaHectares,
+      'latitude': latitude,
+      'longitude': longitude,
+    });
+    return Farm.fromJson(response);
+  }
 }
