@@ -1,4 +1,5 @@
 import uuid
+from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,10 +10,17 @@ from app.core.auth import (
     has_global_read_access,
     require_write_access,
 )
-from app.models import User, Parcel
-from app.schemas.parcel import ParcelCreate, ParcelUpdate, ParcelRead
+from app.models import Parcel, ParcelPhenologicalStage, User
+from app.schemas.parcel import (
+    ParcelConfigurationUpdate,
+    ParcelCreate,
+    ParcelRead,
+    ParcelUpdate,
+)
 from app.repositories import parcel as parcel_repo
 from app.repositories import farm as farm_repo
+from app.repositories import phenology as stage_repo
+from app.repositories import variety as variety_repo
 
 router = APIRouter(prefix="/parcels", tags=["parcels"])
 
@@ -92,6 +100,99 @@ async def update_parcel(
     for field, value in update_data.items():
         setattr(parcel, field, value)
     return await parcel_repo.update_parcel(db, parcel)
+
+
+@router.patch("/{parcel_id}/configuration", response_model=ParcelRead)
+async def update_parcel_configuration(
+    parcel_id: uuid.UUID,
+    payload: ParcelConfigurationUpdate,
+    current_user: User = Depends(require_write_access),
+    db: AsyncSession = Depends(get_db),
+):
+    parcel = await _get_owned_parcel(parcel_id, db, current_user)
+    target_crop_id = payload.crop_id or parcel.crop_id
+    target_variety_id = (
+        payload.variety_id
+        if "variety_id" in payload.model_fields_set
+        else parcel.variety_id
+    )
+
+    template = await stage_repo.get_template(
+        db, payload.phenological_stage_template_id
+    )
+    if not template:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Phenological stage template not found.",
+        )
+    if template.crop_id != target_crop_id:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="This stage belongs to a different crop than the parcel.",
+        )
+
+    if target_variety_id is not None:
+        variety = await variety_repo.get_variety(db, target_variety_id)
+        if not variety:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Variety not found.",
+            )
+        if variety.crop_id != target_crop_id:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="This variety belongs to a different crop than the parcel.",
+            )
+
+    instances = await stage_repo.list_instances(db, parcel.id)
+    current_instance = max(
+        instances,
+        key=lambda instance: instance.selected_at,
+        default=None,
+    )
+
+    try:
+        update_data = payload.model_dump(
+            exclude={"phenological_stage_template_id"},
+            exclude_unset=True,
+        )
+        for field, value in update_data.items():
+            setattr(parcel, field, value)
+
+        if (
+            current_instance is None
+            or current_instance.template_id
+            != payload.phenological_stage_template_id
+        ):
+            selected_instance = next(
+                (
+                    instance
+                    for instance in instances
+                    if instance.template_id
+                    == payload.phenological_stage_template_id
+                ),
+                None,
+            )
+            selected_at = datetime.now(timezone.utc)
+            if selected_instance is None:
+                db.add(
+                    ParcelPhenologicalStage(
+                        parcel_id=parcel.id,
+                        template_id=payload.phenological_stage_template_id,
+                        actual_date=date.today(),
+                        selected_at=selected_at,
+                    )
+                )
+            else:
+                selected_instance.actual_date = date.today()
+                selected_instance.selected_at = selected_at
+
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
+    await db.refresh(parcel)
+    return parcel
 
 
 @router.delete("/{parcel_id}", status_code=status.HTTP_204_NO_CONTENT)

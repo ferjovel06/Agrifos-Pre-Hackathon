@@ -1,6 +1,6 @@
 import unittest
 import uuid
-from datetime import date
+from datetime import date, datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -26,6 +26,7 @@ class PhenologyModelTests(unittest.TestCase):
         )
         self.assertFalse(ParcelPhenologicalStage.__table__.c.parcel_id.nullable)
         self.assertFalse(ParcelPhenologicalStage.__table__.c.template_id.nullable)
+        self.assertFalse(ParcelPhenologicalStage.__table__.c.selected_at.nullable)
 
     def test_instance_response_exposes_its_template_details(self):
         template = PhenologicalStageTemplate(
@@ -40,6 +41,7 @@ class PhenologyModelTests(unittest.TestCase):
             template_id=template.id,
             estimated_date=date(2026, 10, 1),
             actual_date=date(2026, 10, 3),
+            selected_at=datetime(2026, 10, 3, tzinfo=timezone.utc),
             template=template,
         )
         instance.id = uuid.uuid4()

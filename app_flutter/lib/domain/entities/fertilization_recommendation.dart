@@ -85,12 +85,14 @@ class FertilizerApplication {
   const FertilizerApplication({
     required this.number,
     required this.moment,
+    this.monthAfterPlanting,
     required this.fraction,
     required this.products,
   });
 
   final int number;
   final String moment;
+  final int? monthAfterPlanting;
   final double fraction;
   final List<FertilizerProductDose> products;
 
@@ -98,10 +100,14 @@ class FertilizerApplication {
     return FertilizerApplication(
       number: json['application_number'] as int,
       moment: json['moment'] as String,
+      monthAfterPlanting: json['month_after_planting'] as int?,
       fraction: (json['fraction'] as num).toDouble(),
       products: _productList(json['products']),
     );
   }
+
+  FertilizerProductDose? sourceFor(String nutrient) =>
+      _sourceFor(products, nutrient);
 }
 
 class FertilizerScenario {
@@ -137,16 +143,17 @@ class FertilizerScenario {
   }
 
   FertilizerProductDose? sourceFor(String nutrient) {
-    FertilizerProductDose? result;
-    var largestContribution = 0.0;
-    for (final product in products) {
-      final contribution = product.nutrientContributions[nutrient] ?? 0;
-      if (contribution > largestContribution) {
-        result = product;
-        largestContribution = contribution;
+    return _sourceFor(products, nutrient);
+  }
+
+  FertilizerApplication? nextApplicationForAge(int ageMonths) {
+    for (final application in applicationSchedule) {
+      final scheduledMonth = application.monthAfterPlanting;
+      if (scheduledMonth != null && scheduledMonth >= ageMonths) {
+        return application;
       }
     }
-    return result;
+    return null;
   }
 }
 
@@ -192,6 +199,15 @@ class FertilizationRecommendation {
   FertilizerScenario? get conventionalScenario =>
       scenarios.isEmpty ? null : scenarios.first;
 
+  bool get usesYoungCropSchedule => status == 'young_crop_reference';
+
+  FertilizerApplication? get nextYoungCropApplication => usesYoungCropSchedule
+      ? conventionalScenario?.nextApplicationForAge(plantAgeMonths)
+      : null;
+
+  FertilizerScenario? get diagnosticSummaryScenario =>
+      usesYoungCropSchedule ? null : conventionalScenario;
+
   factory FertilizationRecommendation.fromJson(Map<String, dynamic> json) {
     return FertilizationRecommendation(
       planId: json['plan_id'] as String?,
@@ -233,4 +249,20 @@ List<FertilizerProductDose> _productList(dynamic value) {
         (item) => FertilizerProductDose.fromJson(item as Map<String, dynamic>),
       )
       .toList(growable: false);
+}
+
+FertilizerProductDose? _sourceFor(
+  List<FertilizerProductDose> products,
+  String nutrient,
+) {
+  FertilizerProductDose? result;
+  var largestContribution = 0.0;
+  for (final product in products) {
+    final contribution = product.nutrientContributions[nutrient] ?? 0;
+    if (contribution > largestContribution) {
+      result = product;
+      largestContribution = contribution;
+    }
+  }
+  return result;
 }

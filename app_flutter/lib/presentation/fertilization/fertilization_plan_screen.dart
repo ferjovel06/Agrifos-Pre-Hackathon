@@ -190,7 +190,9 @@ class _FertilizationPlanScreenState extends State<FertilizationPlanScreen>
         _SectionTitle(
           title: scenario.name,
           subtitle: scenario.isMathematicallyValid
-              ? 'Fuentes y dosis totales'
+              ? (recommendation.usesYoungCropSchedule
+                    ? 'Totales acumulados del plan hasta el mes 18'
+                    : 'Fuentes y dosis totales')
               : 'Requiere revisión técnica',
         ),
         const SizedBox(height: 10),

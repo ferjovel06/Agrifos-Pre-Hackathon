@@ -6,8 +6,11 @@ import 'package:provider/provider.dart';
 
 import '../../data/api/farm_repository.dart';
 import '../../data/api/parcel_repository.dart';
+import '../../domain/entities/crop.dart';
 import '../../domain/entities/farm.dart';
 import '../../domain/entities/parcel.dart';
+import '../../domain/entities/phenological_stage.dart';
+import '../../domain/entities/variety.dart';
 import 'farm_provider.dart';
 import 'parcel_provider.dart';
 
@@ -127,15 +130,22 @@ class _FarmEditScreenState extends State<FarmEditScreen> {
 }
 
 class ParcelEditScreen extends StatefulWidget {
-  const ParcelEditScreen({super.key, required this.parcel, required this.farm});
+  const ParcelEditScreen({
+    super.key,
+    required this.parcel,
+    required this.farm,
+    this.repository,
+  });
   final Parcel parcel;
   final Farm farm;
+  final ParcelRepository? repository;
   @override
   State<ParcelEditScreen> createState() => _ParcelEditScreenState();
 }
 
 class _ParcelEditScreenState extends State<ParcelEditScreen> {
   final key = GlobalKey<FormState>();
+  late final ParcelRepository repository;
   late final name = TextEditingController(text: widget.parcel.name);
   late final area = TextEditingController(
     text: '${widget.parcel.areaHectares}',
@@ -145,6 +155,101 @@ class _ParcelEditScreenState extends State<ParcelEditScreen> {
   );
   late DateTime plantingDate = widget.parcel.plantingDate;
   bool saving = false;
+  bool loadingOptions = true;
+  String? optionsError;
+  List<Crop> crops = const [];
+  List<Variety> varieties = const [];
+  List<PhenologicalStageTemplate> stageTemplates = const [];
+  late String selectedCropId = widget.parcel.cropId;
+  String? selectedVarietyId;
+  String? selectedStageTemplateId;
+  int optionsLoadToken = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    repository = widget.repository ?? ParcelRepository();
+    selectedVarietyId = widget.parcel.varietyId;
+    loadInitialOptions();
+  }
+
+  Future<void> loadInitialOptions() async {
+    final loadToken = ++optionsLoadToken;
+    try {
+      final results = await Future.wait([
+        repository.getCrops(),
+        repository.getVarieties(selectedCropId),
+        repository.getStageTemplates(selectedCropId),
+        repository.getStageInstances(widget.parcel.id),
+      ]);
+      if (!mounted || loadToken != optionsLoadToken) return;
+      final instances = results[3] as List<PhenologicalStageInstance>;
+      setState(() {
+        crops = results[0] as List<Crop>;
+        varieties = results[1] as List<Variety>;
+        stageTemplates = results[2] as List<PhenologicalStageTemplate>;
+        selectedStageTemplateId = currentStage(instances)?.templateId;
+        loadingOptions = false;
+        optionsError = null;
+      });
+    } catch (_) {
+      if (!mounted || loadToken != optionsLoadToken) return;
+      setState(() {
+        loadingOptions = false;
+        optionsError = 'No se pudieron cargar los cultivos y etapas.';
+      });
+    }
+  }
+
+  PhenologicalStageInstance? currentStage(
+    List<PhenologicalStageInstance> instances,
+  ) {
+    if (instances.isEmpty) return null;
+    final sorted = [...instances]
+      ..sort((a, b) {
+        final aDate = a.selectedAt ?? a.actualDate;
+        final bDate = b.selectedAt ?? b.actualDate;
+        if (aDate == null && bDate == null) {
+          return b.stageOrder.compareTo(a.stageOrder);
+        }
+        if (aDate == null) return 1;
+        if (bDate == null) return -1;
+        return bDate.compareTo(aDate);
+      });
+    return sorted.first;
+  }
+
+  Future<void> selectCrop(String cropId) async {
+    if (cropId == selectedCropId) return;
+    final loadToken = ++optionsLoadToken;
+    setState(() {
+      selectedCropId = cropId;
+      selectedVarietyId = null;
+      selectedStageTemplateId = null;
+      varieties = const [];
+      stageTemplates = const [];
+      loadingOptions = true;
+      optionsError = null;
+    });
+    try {
+      final results = await Future.wait([
+        repository.getVarieties(cropId),
+        repository.getStageTemplates(cropId),
+      ]);
+      if (!mounted || loadToken != optionsLoadToken) return;
+      setState(() {
+        varieties = results[0] as List<Variety>;
+        stageTemplates = results[1] as List<PhenologicalStageTemplate>;
+        loadingOptions = false;
+      });
+    } catch (_) {
+      if (!mounted || loadToken != optionsLoadToken) return;
+      setState(() {
+        loadingOptions = false;
+        optionsError = 'No se pudieron cargar las opciones del cultivo.';
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -166,12 +271,19 @@ class _ParcelEditScreenState extends State<ParcelEditScreen> {
 
   Future<void> save() async {
     if (!key.currentState!.validate()) return;
+    if (selectedVarietyId == null || selectedStageTemplateId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Selecciona la variedad y la etapa.')),
+      );
+      return;
+    }
     setState(() => saving = true);
     try {
-      final updated = await ParcelRepository().updateParcel(
+      final updated = await repository.updateParcelConfiguration(
         id: widget.parcel.id,
-        cropId: widget.parcel.cropId,
-        varietyId: widget.parcel.varietyId,
+        cropId: selectedCropId,
+        varietyId: selectedVarietyId!,
+        stageTemplateId: selectedStageTemplateId!,
         name: name.text.trim(),
         areaHectares: double.parse(area.text),
         plantsPerHectare: int.parse(density.text),
@@ -202,6 +314,64 @@ class _ParcelEditScreenState extends State<ParcelEditScreen> {
       key: key,
       child: Column(
         children: [
+          if (loadingOptions)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 18),
+              child: LinearProgressIndicator(),
+            )
+          else if (optionsError != null)
+            _OptionsError(message: optionsError!, onRetry: loadInitialOptions),
+          _selector<String>(
+            value: crops.any((item) => item.id == selectedCropId)
+                ? selectedCropId
+                : null,
+            label: 'Cultivo',
+            icon: Icons.eco_outlined,
+            items: crops
+                .map(
+                  (item) =>
+                      DropdownMenuItem(value: item.id, child: Text(item.name)),
+                )
+                .toList(),
+            onChanged: loadingOptions
+                ? null
+                : (value) {
+                    if (value != null) selectCrop(value);
+                  },
+          ),
+          _selector<String>(
+            value: varieties.any((item) => item.id == selectedVarietyId)
+                ? selectedVarietyId
+                : null,
+            label: 'Variedad',
+            icon: Icons.spa_outlined,
+            items: varieties
+                .map(
+                  (item) =>
+                      DropdownMenuItem(value: item.id, child: Text(item.name)),
+                )
+                .toList(),
+            onChanged: loadingOptions
+                ? null
+                : (value) => setState(() => selectedVarietyId = value),
+          ),
+          _selector<String>(
+            value:
+                stageTemplates.any((item) => item.id == selectedStageTemplateId)
+                ? selectedStageTemplateId
+                : null,
+            label: 'Etapa fenológica actual',
+            icon: Icons.timeline,
+            items: stageTemplates
+                .map(
+                  (item) =>
+                      DropdownMenuItem(value: item.id, child: Text(item.name)),
+                )
+                .toList(),
+            onChanged: loadingOptions
+                ? null
+                : (value) => setState(() => selectedStageTemplateId = value),
+          ),
           _field(name, 'Nombre de la parcela', icon: Icons.label_outline),
           _field(
             area,
@@ -242,6 +412,51 @@ class _ParcelEditScreenState extends State<ParcelEditScreen> {
           ),
         ],
       ),
+    ),
+  );
+}
+
+Widget _selector<T>({
+  required T? value,
+  required String label,
+  required IconData icon,
+  required List<DropdownMenuItem<T>> items,
+  required ValueChanged<T?>? onChanged,
+}) {
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 14),
+    child: DropdownButtonFormField<T>(
+      key: ValueKey('$label:$value'),
+      initialValue: value,
+      isExpanded: true,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, color: const Color(0xFF31543B)),
+      ),
+      items: items,
+      onChanged: onChanged,
+      validator: (selected) =>
+          selected == null ? 'Selecciona una opción.' : null,
+    ),
+  );
+}
+
+class _OptionsError extends StatelessWidget {
+  const _OptionsError({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 14),
+    child: Row(
+      children: [
+        const Icon(Icons.error_outline, color: Colors.redAccent),
+        const SizedBox(width: 8),
+        Expanded(child: Text(message)),
+        TextButton(onPressed: onRetry, child: const Text('Reintentar')),
+      ],
     ),
   );
 }
