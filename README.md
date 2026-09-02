@@ -32,10 +32,10 @@ Sistema de asistencia agrícola compuesto por una plataforma digital interactiva
 2. **App (Flutter):** detecta el sensor conectado por OTG, permite capturar análisis de laboratorio y consume la API REST. Supabase Auth gestiona registro, confirmación de correo, sesiones, recuperación de contraseña y MFA TOTP. Las pestañas de planificación y finanzas conservan por ahora una interfaz de demostración.
 3. **Backend (FastAPI):** valida los JWT de Supabase, aplica permisos por rol, persiste la información en PostgreSQL y expone los servicios de diagnóstico, fertilización, fenología y clima. Los modelos financieros existen, pero su router todavía no está publicado por la API.
 4. **Servicio externo de clima:** proveedor meteorológico de terceros consultado por el backend para generar alertas predictivas (lluvias, canículas, olas de calor).
-5. **Base de datos (PostgreSQL):** modelo relacional objetivo de 27 entidades, incluidas referencias agronómicas versionadas, etapas fenológicas normalizadas y recomendaciones de fertilización persistidas — ver [Modelo de datos](#modelo-de-datos) para el detalle completo.
+5. **Base de datos (PostgreSQL):** modelo relacional de 27 entidades, incluidas referencias agronómicas versionadas, etapas fenológicas normalizadas y recomendaciones de fertilización persistidas — ver [Modelo de datos](#modelo-de-datos) para el detalle completo.
 
 ## Modelo de datos
-El diagrama ER completo del modelo objetivo (27 entidades, 41 relaciones) está versionado en [`docs/diagrams/er_diagrams/agrifos_er_diagram.mmd`](docs/diagrams/er_diagrams/agrifos_er_diagram.mmd) (formato [Mermaid](https://mermaid.live)). También se divide en vistas por módulo para facilitar su lectura:
+El diagrama ER completo del modelo (27 entidades, 41 relaciones) está versionado en [`docs/diagrams/er_diagrams/agrifos_er_diagram.mmd`](docs/diagrams/er_diagrams/agrifos_er_diagram.mmd) (formato [Mermaid](https://mermaid.live)). También se divide en vistas por módulo para facilitar su lectura:
 
 - [Estructura de finca](docs/diagrams/er_diagrams/er_core_farm.mmd)
 - [Datos de suelo](docs/diagrams/er_diagrams/er_soil_data.mmd)
