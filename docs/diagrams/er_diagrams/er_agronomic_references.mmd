@@ -1,0 +1,40 @@
+---
+config:
+  layout: elk
+---
+erDiagram
+  AGRONOMIC_REFERENCE_SET ||--o{ SOIL_REFERENCE_RANGE : versions
+  AGRONOMIC_REFERENCE_SET ||--o{ FERTILIZER_PRODUCT : versions
+  AGRONOMIC_REFERENCE_SET ||--o{ APPLICATION_SCHEDULE_RULE : versions
+  AGRONOMIC_REFERENCE_SET ||--o{ AGRONOMIC_PARAMETER : versions
+  AGRONOMIC_REFERENCE_SET o|--o{ OPTIMAL_REQUIREMENT : versions
+  AGRONOMIC_REFERENCE_SET o|--o{ EXTRACTION_INDEX : versions
+  AGRONOMIC_REFERENCE_SET o|--o{ VARIETY_FACTOR : versions
+  AGRONOMIC_REFERENCE_SET o|--o{ STAGE_FACTOR : versions
+  AGRONOMIC_REFERENCE_SET o|--o{ EFFICIENCY_FACTOR : versions
+  CROP ||--o{ SOIL_REFERENCE_RANGE : defines
+  CROP ||--o{ APPLICATION_SCHEDULE_RULE : schedules
+  CROP ||--o{ AGRONOMIC_PARAMETER : configures
+  CROP ||--o{ OPTIMAL_REQUIREMENT : sets
+  CROP ||--o{ EXTRACTION_INDEX : defines
+  PHENOLOGICAL_STAGE_TEMPLATE ||--o{ OPTIMAL_REQUIREMENT : applies
+  PHENOLOGICAL_STAGE_TEMPLATE ||--o{ STAGE_FACTOR : adjusts
+  VARIETY ||--o{ VARIETY_FACTOR : adjusts
+  SOIL_TYPE ||--o{ EFFICIENCY_FACTOR : defines
+  FERTILIZER_PRODUCT ||--|{ FERTILIZER_PRODUCT_NUTRIENT : contains
+
+  AGRONOMIC_REFERENCE_SET { string key }
+  SOIL_REFERENCE_RANGE { string parameter }
+  FERTILIZER_PRODUCT { string key }
+  FERTILIZER_PRODUCT_NUTRIENT { string nutrient }
+  APPLICATION_SCHEDULE_RULE { string life_stage }
+  AGRONOMIC_PARAMETER { string key }
+  OPTIMAL_REQUIREMENT { string nutrient }
+  EXTRACTION_INDEX { string nutrient }
+  VARIETY_FACTOR { string nutrient }
+  STAGE_FACTOR { string nutrient }
+  SOIL_TYPE { string name }
+  EFFICIENCY_FACTOR { string nutrient }
+  CROP { string name }
+  VARIETY { string name }
+  PHENOLOGICAL_STAGE_TEMPLATE { uuid id PK }

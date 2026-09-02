@@ -23,7 +23,7 @@ Sistema de asistencia agrícola compuesto por una plataforma digital interactiva
 
 ## Arquitectura
 
-![Arquitectura](docs/architecture_diagram.png)
+![Arquitectura](docs/diagrams/architecture_diagram.png)
 
 > El PNG muestra la arquitectura objetivo del producto.
 
@@ -35,7 +35,15 @@ Sistema de asistencia agrícola compuesto por una plataforma digital interactiva
 5. **Base de datos (PostgreSQL):** modelo relacional de 27 entidades, incluidas referencias agronómicas versionadas, etapas fenológicas normalizadas y recomendaciones de fertilización persistidas — ver [Modelo de datos](#modelo-de-datos) para el detalle completo.
 
 ## Modelo de datos
-El diagrama ER completo (27 entidades, 41 relaciones) está versionado en [`docs/agrifos_er_diagram.mmd`](docs/agrifos_er_diagram.mmd) (formato [Mermaid](https://mermaid.live)).
+El diagrama ER completo del modelo (27 entidades, 41 relaciones) está versionado en [`docs/diagrams/er_diagrams/agrifos_er_diagram.mmd`](docs/diagrams/er_diagrams/agrifos_er_diagram.mmd) (formato [Mermaid](https://mermaid.live)). También se divide en vistas por módulo para facilitar su lectura:
+
+- [Estructura de finca](docs/diagrams/er_diagrams/er_core_farm.mmd)
+- [Datos de suelo](docs/diagrams/er_diagrams/er_soil_data.mmd)
+- [Fenología](docs/diagrams/er_diagrams/er_phenology.mmd)
+- [Referencias agronómicas](docs/diagrams/er_diagrams/er_agronomic_references.mmd)
+- [Planes de fertilización](docs/diagrams/er_diagrams/er_fertilization_plans.mmd)
+- [Alertas climáticas](docs/diagrams/er_diagrams/er_climate_alerts.mmd)
+- [Finanzas](docs/diagrams/er_diagrams/er_finance.mmd)
 
 **Grupos de entidades:**
 
@@ -43,9 +51,9 @@ El diagrama ER completo (27 entidades, 41 relaciones) está versionado en [`docs
 |---|---|
 | Usuarios y estructura de finca | `User`, `Farm`, `Parcel`, `Crop`, `Variety` |
 | Datos de suelo | `Reading` (sensor OTG), `LabAnalysis` (laboratorio) |
-| Fenología | `PhenologicalStageTemplate` define el ciclo estándar por cultivo y `ParcelPhenologicalStage` registra las fechas estimadas y reales de cada parcela |
+| Fenología | `PhenologicalStageTemplate` define el ciclo estándar y las etapas reutilizables de cada cultivo; `ParcelPhenologicalStage` registra las fechas estimadas y reales de cada parcela |
 | Referencias agronómicas versionadas | `AgronomicReferenceSet`, `SoilReferenceRange`, `FertilizerProduct`, `FertilizerProductNutrient`, `ApplicationScheduleRule`, `AgronomicParameter`, `OptimalRequirement`, `ExtractionIndex`, `VarietyFactor`, `StageFactor`, `SoilType`, `EfficiencyFactor` |
-| Resultado del motor | `FertilizationPlan` y `FertilizationPlanItem` — conservan la versión del motor, la fuente, los escenarios, los productos, las dosis y el calendario de aplicación generado |
+| Resultado del motor | `FertilizationPlan` y `FertilizationPlanItem` conservan la versión del motor, la fuente, los escenarios, los productos, las dosis y el calendario de aplicación generado |
 | Alertas | `Alert` — `farm_id` obligatorio (alcance por defecto: toda la finca, ej. riesgo climático), `parcel_id` opcional (acota a una parcela, ej. alertas fenológicas) |
 | Finanzas | `Expense`, `Income`, `Production` (una `Production` puede agregarse a un `Income` compartido con otras) |
 
@@ -179,10 +187,12 @@ agrifos/
 │   │   ├── core/
 │   │   │   ├── config.py           # Carga de variables de entorno (Pydantic Settings)
 │   │   │   └── auth.py             # Validación de JWT de Supabase (get_current_user, require_role)
-│   │   ├── models/                 # User, Farm, Parcel, Crop, Variety, phenology templates/instances,
+│   │   ├── models/                 # User, Farm, Parcel, Crop, Variety, PhenologicalStageTemplate,
+│   │   │                           # ParcelPhenologicalStage,
 │   │   │                           # Reading, LabAnalysis, OptimalRequirement, ExtractionIndex,
 │   │   │                           # VarietyFactor, StageFactor, SoilType, EfficiencyFactor,
-│   │   │                           # FertilizationPlan, Alert, Expense, Income, Production
+│   │   │                           # FertilizationPlan, FertilizationPlanItem, Alert,
+│   │   │                           # Expense, Income, Production
 │   │   ├── schemas/                # Esquemas Pydantic (request/response)
 │   │   ├── routers/
 │   │   │   ├── users.py            # CRUD de perfil 
@@ -238,7 +248,12 @@ agrifos/
 │   └── pubspec.yaml
 │
 ├── docs/
-│   ├── agrifos_er_diagram.mmd     # Diagrama ER completo (Mermaid)
+│   ├── diagrams/                  # Diagramas del sistema
+│   │   ├── architecture_diagram.png
+│   │   ├── activity_diagram.png
+│   │   ├── class_diagram.svg
+│   │   ├── use_case_diagram.svg
+│   │   └── er_diagrams/           # Diagrama ER completo y vistas por módulo
 │   └── guia_evaluador.md          # Prueba de API y APK
 │
 └── README.md

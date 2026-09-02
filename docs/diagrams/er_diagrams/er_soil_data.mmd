@@ -1,0 +1,44 @@
+erDiagram
+  PARCEL ||--o{ READING : records
+  PARCEL ||--o{ LAB_ANALYSIS : records
+
+  PARCEL {
+    uuid id PK
+    uuid farm_id FK
+    uuid crop_id FK
+    string name
+    float area_hectares
+  }
+  READING {
+    uuid id PK
+    uuid parcel_id FK
+    float nitrogen
+    float phosphorus
+    float potassium
+    float ec
+    float ph
+    float temperature
+    float humidity
+    timestamp recorded_at
+  }
+  LAB_ANALYSIS {
+    uuid id PK
+    uuid parcel_id FK
+    string sample_code
+    timestamp sampled_at
+    float ph
+    float ec
+    float organic_matter_pct
+    float cic
+    float clay_pct
+    float silt_pct
+    float sand_pct
+    float nitrogen
+    float phosphorus
+    float potassium
+    float calcium
+    float magnesium
+    float sulfur
+    string lab
+    timestamp recorded_at
+  }

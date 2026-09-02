@@ -1,0 +1,28 @@
+erDiagram
+  FARM ||--o{ ALERT : triggers
+  PARCEL o|--o{ ALERT : scopes
+  FARM ||--o{ PARCEL : contains
+
+  FARM {
+    uuid id PK
+    uuid user_id FK
+    string name
+  }
+  PARCEL {
+    uuid id PK
+    uuid farm_id FK
+    string name
+  }
+  ALERT {
+    uuid id PK
+    uuid farm_id FK
+    uuid parcel_id FK
+    string type
+    string title
+    string message
+    string severity
+    date event_date
+    float risk_score
+    boolean is_active
+    timestamp created_at
+  }

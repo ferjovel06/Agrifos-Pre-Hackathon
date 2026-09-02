@@ -1,0 +1,30 @@
+erDiagram
+  CROP ||--o{ PHENOLOGICAL_STAGE_TEMPLATE : "defines stages"
+  PHENOLOGICAL_STAGE_TEMPLATE ||--o{ PARCEL_PHENOLOGICAL_STAGE : instantiates
+  PARCEL ||--o{ PARCEL_PHENOLOGICAL_STAGE : schedules
+
+  CROP {
+    uuid id PK
+    string name
+  }
+  PARCEL {
+    uuid id PK
+    uuid farm_id FK
+    uuid crop_id FK
+    date planting_date
+  }
+  PHENOLOGICAL_STAGE_TEMPLATE {
+    uuid id PK
+    uuid crop_id FK
+    string name
+    int stage_order
+    int duration_days
+  }
+  PARCEL_PHENOLOGICAL_STAGE {
+    uuid id PK
+    uuid template_id FK
+    uuid parcel_id FK
+    date estimated_date
+    date actual_date
+    datetime selected_at
+  }
