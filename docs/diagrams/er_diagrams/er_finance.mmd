@@ -1,0 +1,32 @@
+erDiagram
+  FARM ||--o{ EXPENSE : incurs
+  FARM ||--o{ INCOME : receives
+  FARM ||--o{ PRODUCTION : yields
+  INCOME o|--o{ PRODUCTION : aggregates
+
+  FARM {
+    uuid id PK
+    uuid user_id FK
+    string name
+  }
+  EXPENSE {
+    uuid id PK
+    uuid farm_id FK
+    string category
+    float amount
+    date expense_date
+  }
+  INCOME {
+    uuid id PK
+    uuid farm_id FK
+    float amount
+    date income_date
+  }
+  PRODUCTION {
+    uuid id PK
+    uuid farm_id FK
+    uuid income_id FK
+    float quantity
+    string unit
+    date harvest_date
+  }

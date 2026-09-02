@@ -1,49 +1,24 @@
+---
+config:
+  layout: elk
+---
 erDiagram
+  direction TB
+
+  %% Core farm structure
   USER ||--o{ FARM : owns
   FARM ||--o{ PARCEL : contains
-  CROP ||--o{ PARCEL : "is grown in"
-  VARIETY o|--o{ PARCEL : specifies
+  CROP ||--o{ PARCEL : grows_in
   CROP ||--o{ VARIETY : has
-  PARCEL ||--o{ READING : records
-  PARCEL ||--o{ LAB_ANALYSIS : records
-  PHENOLOGICAL_STAGE o|--o{ PHENOLOGICAL_STAGE : "is instance of"
-  CROP ||--o{ PHENOLOGICAL_STAGE : "defines stages"
-  PARCEL o|--o{ PHENOLOGICAL_STAGE : schedules
-  CROP ||--o{ OPTIMAL_REQUIREMENT : sets
-  PHENOLOGICAL_STAGE ||--o{ OPTIMAL_REQUIREMENT : "applies at"
-  CROP ||--o{ EXTRACTION_INDEX : defines
-  VARIETY ||--o{ VARIETY_FACTOR : adjusts
-  PHENOLOGICAL_STAGE ||--o{ STAGE_FACTOR : adjusts
-  SOIL_TYPE ||--o{ EFFICIENCY_FACTOR : defines
-  AGRONOMIC_REFERENCE_SET ||--o{ SOIL_REFERENCE_RANGE : versions
-  AGRONOMIC_REFERENCE_SET ||--o{ FERTILIZER_PRODUCT : versions
-  AGRONOMIC_REFERENCE_SET ||--o{ APPLICATION_SCHEDULE_RULE : versions
-  AGRONOMIC_REFERENCE_SET ||--o{ AGRONOMIC_PARAMETER : versions
-  AGRONOMIC_REFERENCE_SET o|--o{ OPTIMAL_REQUIREMENT : versions
-  AGRONOMIC_REFERENCE_SET o|--o{ EXTRACTION_INDEX : versions
-  AGRONOMIC_REFERENCE_SET o|--o{ VARIETY_FACTOR : versions
-  AGRONOMIC_REFERENCE_SET o|--o{ STAGE_FACTOR : versions
-  AGRONOMIC_REFERENCE_SET o|--o{ EFFICIENCY_FACTOR : versions
-  CROP ||--o{ SOIL_REFERENCE_RANGE : defines
-  CROP ||--o{ APPLICATION_SCHEDULE_RULE : schedules
-  CROP ||--o{ AGRONOMIC_PARAMETER : configures
-  FERTILIZER_PRODUCT ||--|{ FERTILIZER_PRODUCT_NUTRIENT : contains
-  PARCEL ||--o{ FERTILIZATION_PLAN : generates
-  READING o|--o{ FERTILIZATION_PLAN : originates
-  LAB_ANALYSIS o|--o{ FERTILIZATION_PLAN : originates
-  FARM ||--o{ ALERT : triggers
-  PARCEL o|--o{ ALERT : scopes
-  FARM ||--o{ EXPENSE : incurs
-  FARM ||--o{ INCOME : receives
-  FARM ||--o{ PRODUCTION : yields
-  INCOME o|--o{ PRODUCTION : aggregates
+  VARIETY o|--o{ PARCEL : specifies
 
   USER {
-    uuid id PK "FK -> auth.users.id (Supabase Auth)"
+    uuid id PK
     string name
     string email
     string role
   }
+
   FARM {
     uuid id PK
     uuid user_id FK
@@ -52,6 +27,7 @@ erDiagram
     float latitude
     float longitude
   }
+
   PARCEL {
     uuid id PK
     uuid farm_id FK
@@ -62,15 +38,22 @@ erDiagram
     int plants_per_hectare
     date planting_date
   }
+
   CROP {
     uuid id PK
     string name
   }
+
   VARIETY {
     uuid id PK
     uuid crop_id FK
     string name
   }
+
+  %% Monitoring and analysis
+  PARCEL ||--o{ READING : records
+  PARCEL ||--o{ LAB_ANALYSIS : records
+
   READING {
     uuid id PK
     uuid parcel_id FK
@@ -83,6 +66,7 @@ erDiagram
     float humidity
     timestamp recorded_at
   }
+
   LAB_ANALYSIS {
     uuid id PK
     uuid parcel_id FK
@@ -110,17 +94,35 @@ erDiagram
     string lab
     timestamp recorded_at
   }
-  PHENOLOGICAL_STAGE {
+
+  %% Crop stages and requirements
+  CROP ||--o{ PHENOLOGICAL_STAGE_TEMPLATE : defines
+  PHENOLOGICAL_STAGE_TEMPLATE ||--o{ PARCEL_PHENOLOGICAL_STAGE : instantiates
+  PARCEL ||--o{ PARCEL_PHENOLOGICAL_STAGE : schedules
+
+  CROP ||--o{ OPTIMAL_REQUIREMENT : sets
+  PHENOLOGICAL_STAGE_TEMPLATE ||--o{ OPTIMAL_REQUIREMENT : applies_at
+  CROP ||--o{ EXTRACTION_INDEX : defines
+  VARIETY ||--o{ VARIETY_FACTOR : adjusts
+  PHENOLOGICAL_STAGE_TEMPLATE ||--o{ STAGE_FACTOR : adjusts
+
+  PHENOLOGICAL_STAGE_TEMPLATE {
     uuid id PK
-    uuid template_id FK
     uuid crop_id FK
-    uuid parcel_id FK
     string name
     int stage_order
     int duration_days
+  }
+
+  PARCEL_PHENOLOGICAL_STAGE {
+    uuid id PK
+    uuid template_id FK
+    uuid parcel_id FK
     date estimated_date
     date actual_date
+    datetime selected_at
   }
+
   OPTIMAL_REQUIREMENT {
     uuid id PK
     uuid reference_set_id FK
@@ -130,6 +132,7 @@ erDiagram
     float min_value
     float max_value
   }
+
   EXTRACTION_INDEX {
     uuid id PK
     uuid reference_set_id FK
@@ -137,6 +140,7 @@ erDiagram
     string nutrient
     float ie_value
   }
+
   VARIETY_FACTOR {
     uuid id PK
     uuid reference_set_id FK
@@ -144,6 +148,7 @@ erDiagram
     string nutrient
     float fv_factor
   }
+
   STAGE_FACTOR {
     uuid id PK
     uuid reference_set_id FK
@@ -151,19 +156,23 @@ erDiagram
     string nutrient
     float fe_factor
   }
-  SOIL_TYPE {
-    uuid id PK
-    string name
-    string description
-  }
-  EFFICIENCY_FACTOR {
-    uuid id PK
-    uuid reference_set_id FK
-    uuid soil_type_id FK
-    string nutrient
-    float ef_min
-    float ef_max
-  }
+
+  %% Agronomic reference data
+  AGRONOMIC_REFERENCE_SET ||--o{ SOIL_REFERENCE_RANGE : versions
+  AGRONOMIC_REFERENCE_SET ||--o{ FERTILIZER_PRODUCT : versions
+  AGRONOMIC_REFERENCE_SET ||--o{ APPLICATION_SCHEDULE_RULE : versions
+  AGRONOMIC_REFERENCE_SET ||--o{ AGRONOMIC_PARAMETER : versions
+  AGRONOMIC_REFERENCE_SET o|--o{ OPTIMAL_REQUIREMENT : versions
+  AGRONOMIC_REFERENCE_SET o|--o{ EXTRACTION_INDEX : versions
+  AGRONOMIC_REFERENCE_SET o|--o{ VARIETY_FACTOR : versions
+  AGRONOMIC_REFERENCE_SET o|--o{ STAGE_FACTOR : versions
+  AGRONOMIC_REFERENCE_SET o|--o{ EFFICIENCY_FACTOR : versions
+
+  SOIL_TYPE ||--o{ EFFICIENCY_FACTOR : defines
+  CROP ||--o{ SOIL_REFERENCE_RANGE : defines
+  CROP ||--o{ APPLICATION_SCHEDULE_RULE : schedules
+  CROP ||--o{ AGRONOMIC_PARAMETER : configures
+
   AGRONOMIC_REFERENCE_SET {
     uuid id PK
     string key
@@ -173,6 +182,13 @@ erDiagram
     boolean is_active
     timestamp created_at
   }
+
+  SOIL_TYPE {
+    uuid id PK
+    string name
+    string description
+  }
+
   SOIL_REFERENCE_RANGE {
     uuid id PK
     uuid reference_set_id FK
@@ -189,6 +205,35 @@ erDiagram
     boolean high_is_generally_favorable
     text notes
   }
+
+  EFFICIENCY_FACTOR {
+    uuid id PK
+    uuid reference_set_id FK
+    uuid soil_type_id FK
+    string nutrient
+    float ef_min
+    float ef_max
+  }
+
+  AGRONOMIC_PARAMETER {
+    uuid id PK
+    uuid reference_set_id FK
+    uuid crop_id FK
+    string key
+    float value
+    string unit
+    text notes
+  }
+
+  %% Fertilization
+  FERTILIZER_PRODUCT ||--|{ FERTILIZER_PRODUCT_NUTRIENT : contains
+  PARCEL ||--o{ FERTILIZATION_PLAN : generates
+  READING o|--o{ FERTILIZATION_PLAN : originates
+  LAB_ANALYSIS o|--o{ FERTILIZATION_PLAN : originates
+  AGRONOMIC_REFERENCE_SET ||--o{ FERTILIZATION_PLAN : reproduces
+  FERTILIZATION_PLAN ||--o{ FERTILIZATION_PLAN_ITEM : contains
+  FERTILIZER_PRODUCT ||--o{ FERTILIZATION_PLAN_ITEM : recommends
+
   FERTILIZER_PRODUCT {
     uuid id PK
     uuid reference_set_id FK
@@ -197,12 +242,14 @@ erDiagram
     boolean is_low_chloride
     boolean is_active
   }
+
   FERTILIZER_PRODUCT_NUTRIENT {
     uuid id PK
     uuid product_id FK
     string nutrient
     float fraction
   }
+
   APPLICATION_SCHEDULE_RULE {
     uuid id PK
     uuid reference_set_id FK
@@ -213,23 +260,52 @@ erDiagram
     int month_after_planting
     float fraction
   }
-  AGRONOMIC_PARAMETER {
-    uuid id PK
-    uuid reference_set_id FK
-    uuid crop_id FK
-    string key
-    float value
-    string unit
-    text notes
-  }
+
   FERTILIZATION_PLAN {
     uuid id PK
     uuid parcel_id FK
     uuid reading_id FK
     uuid lab_analysis_id FK
+    uuid reference_set_id FK
     string method
+    float target_green_kg_ha
+    int plant_age_months
+    string life_stage
+    string fruit_stage
+    string engine_version
+    string recommendation_status
+    json nutrient_requirements
+    json limiting_nutrients
+    json warnings
+    json assumptions
     timestamp generated_at
   }
+
+  FERTILIZATION_PLAN_ITEM {
+    uuid id PK
+    uuid plan_id FK
+    uuid fertilizer_product_id FK
+    string scenario_name
+    string selection_method
+    boolean scenario_is_valid
+    int application_number
+    string moment
+    float fraction
+    float kg_ha
+    float kg_manzana
+    float g_plant
+    json guaranteed_analysis_pct
+    json nutrient_contributions_kg_ha
+  }
+
+  %% Farm events and finances
+  FARM ||--o{ ALERT : triggers
+  PARCEL o|--o{ ALERT : scopes
+  FARM ||--o{ EXPENSE : incurs
+  FARM ||--o{ INCOME : receives
+  FARM ||--o{ PRODUCTION : yields
+  INCOME o|--o{ PRODUCTION : aggregates
+
   ALERT {
     uuid id PK
     uuid farm_id FK
@@ -243,6 +319,7 @@ erDiagram
     boolean is_active
     timestamp created_at
   }
+
   EXPENSE {
     uuid id PK
     uuid farm_id FK
@@ -250,12 +327,14 @@ erDiagram
     float amount
     date expense_date
   }
+
   INCOME {
     uuid id PK
     uuid farm_id FK
     float amount
     date income_date
   }
+
   PRODUCTION {
     uuid id PK
     uuid farm_id FK

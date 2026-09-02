@@ -1,0 +1,68 @@
+erDiagram
+  PARCEL ||--o{ FERTILIZATION_PLAN : generates
+  READING o|--o{ FERTILIZATION_PLAN : originates
+  LAB_ANALYSIS o|--o{ FERTILIZATION_PLAN : originates
+  AGRONOMIC_REFERENCE_SET ||--o{ FERTILIZATION_PLAN : reproduces
+  FERTILIZATION_PLAN ||--o{ FERTILIZATION_PLAN_ITEM : contains
+  FERTILIZER_PRODUCT ||--o{ FERTILIZATION_PLAN_ITEM : recommends
+
+  PARCEL {
+    uuid id PK
+    uuid farm_id FK
+    uuid crop_id FK
+    string name
+  }
+  READING {
+    uuid id PK
+    uuid parcel_id FK
+    float nitrogen
+    float phosphorus
+    float potassium
+  }
+  LAB_ANALYSIS {
+    uuid id PK
+    uuid parcel_id FK
+    float ph
+    float organic_matter_pct
+    float nitrogen
+    float phosphorus
+    float potassium
+  }
+  AGRONOMIC_REFERENCE_SET {
+    uuid id PK
+    string key
+    string version
+    string source
+  }
+  FERTILIZER_PRODUCT {
+    uuid id PK
+    uuid reference_set_id FK
+    string key
+    string name
+    boolean is_active
+  }
+  FERTILIZATION_PLAN {
+    uuid id PK
+    uuid parcel_id FK
+    uuid reading_id FK
+    uuid lab_analysis_id FK
+    uuid reference_set_id FK
+    string method
+    string engine_version
+    string recommendation_status
+    json nutrient_requirements
+    json warnings
+    timestamp generated_at
+  }
+  FERTILIZATION_PLAN_ITEM {
+    uuid id PK
+    uuid plan_id FK
+    uuid fertilizer_product_id FK
+    string scenario_name
+    int application_number
+    string moment
+    float kg_ha
+    float kg_manzana
+    float g_plant
+    json nutrient_contributions_kg_ha
+  }

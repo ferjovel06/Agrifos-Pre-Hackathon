@@ -1,0 +1,40 @@
+erDiagram
+  USER ||--o{ FARM : owns
+  FARM ||--o{ PARCEL : contains
+  CROP ||--o{ PARCEL : grows
+  CROP ||--o{ VARIETY : has
+  VARIETY o|--o{ PARCEL : specifies
+
+  USER {
+    uuid id PK
+    string name
+    string email
+    string role
+  }
+  FARM {
+    uuid id PK
+    uuid user_id FK
+    string name
+    float area_hectares
+    float latitude
+    float longitude
+  }
+  PARCEL {
+    uuid id PK
+    uuid farm_id FK
+    uuid crop_id FK
+    uuid variety_id FK
+    string name
+    float area_hectares
+    int plants_per_hectare
+    date planting_date
+  }
+  CROP {
+    uuid id PK
+    string name
+  }
+  VARIETY {
+    uuid id PK
+    uuid crop_id FK
+    string name
+  }
