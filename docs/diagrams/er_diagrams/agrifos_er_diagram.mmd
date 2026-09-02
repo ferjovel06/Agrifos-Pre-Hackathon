@@ -224,7 +224,7 @@ erDiagram
   }
 
   %% Fertilization
-  FERTILIZER_PRODUCT ||--|{ FERTILIZER_PRODUCT_NUTRIENT : contains
+  FERTILIZER_PRODUCT ||--o{ FERTILIZER_PRODUCT_NUTRIENT : contains
   PARCEL ||--o{ FERTILIZATION_PLAN : generates
   READING o|--o{ FERTILIZATION_PLAN : originates
   LAB_ANALYSIS o|--o{ FERTILIZATION_PLAN : originates
