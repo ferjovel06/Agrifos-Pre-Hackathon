@@ -59,6 +59,70 @@ def calculate(request, *, plant_age_months=40):
 
 
 class FertilizationServiceTests(unittest.TestCase):
+    def test_suppresses_field_doses_during_initial_nursery(self):
+        request = make_request(target_yield=None)
+
+        for age_months in (2, 3):
+            with self.subTest(age_months=age_months):
+                result = calculate(request, plant_age_months=age_months)
+
+                self.assertEqual(
+                    result.recommendation_status,
+                    "initial_nursery_no_field_dose",
+                )
+                self.assertEqual(result.target_green_kg_ha, 0)
+                self.assertEqual(result.nutrient_requirements, [])
+                self.assertEqual(result.fertilizer_scenarios, [])
+                self.assertEqual(result.limiting_nutrients, [])
+                self.assertTrue(
+                    any("no se emiten dosis" in warning for warning in result.warnings)
+                )
+
+    def test_starts_fractionated_young_plan_after_initial_nursery(self):
+        result = calculate(make_request(target_yield=None), plant_age_months=4)
+
+        self.assertEqual(result.recommendation_status, "young_crop_reference")
+        self.assertTrue(result.fertilizer_scenarios)
+        self.assertEqual(
+            [
+                application.month_after_planting
+                for application in result.fertilizer_scenarios[0].application_schedule
+            ],
+            [2, 6, 10, 14, 18],
+        )
+        next_application = result.fertilizer_scenarios[0].application_schedule[1]
+        scenario = result.fertilizer_scenarios[0]
+        total_doses = {
+            product.product_key: product.kg_ha
+            for product in scenario.products
+        }
+        self.assertEqual(next_application.fraction, 0.20)
+        self.assertAlmostEqual(
+            sum(application.fraction for application in scenario.application_schedule),
+            1.0,
+        )
+        for application in scenario.application_schedule:
+            self.assertEqual(application.fraction, 0.20)
+            for product in application.products:
+                self.assertAlmostEqual(
+                    product.kg_ha,
+                    total_doses[product.product_key] * application.fraction,
+                    places=2,
+                )
+        for product_key, total_kg_ha in total_doses.items():
+            scheduled_total = sum(
+                next(
+                    product.kg_ha
+                    for product in application.products
+                    if product.product_key == product_key
+                )
+                for application in scenario.application_schedule
+            )
+            self.assertAlmostEqual(scheduled_total, total_kg_ha, places=2)
+        self.assertTrue(
+            any("vivero avanzado" in warning.lower() for warning in result.warnings)
+        )
+
     def test_returns_young_plan_during_nursery_and_establishment(self):
         request = make_request(target_yield=None)
 

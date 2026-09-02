@@ -114,6 +114,7 @@ class ProductDoseRead(BaseModel):
 class ApplicationRead(BaseModel):
     application_number: int
     moment: str
+    month_after_planting: int | None = None
     fraction: float
     products: list[ProductDoseRead]
 

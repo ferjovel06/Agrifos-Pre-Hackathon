@@ -50,6 +50,21 @@ void main() {
     expect(provider.status, ParcelStatus.noParcel);
     expect(provider.currentParcel, isNull);
   });
+
+  test('increments the data revision when a parcel is replaced', () async {
+    final provider = ParcelProvider(
+      parcelRepository: _FakeParcelRepository({
+        'farm-1': [_parcel('parcel-1', 'Lote Norte')],
+      }),
+    );
+    await provider.loadForFarm('farm-1');
+    final revision = provider.dataRevision;
+
+    provider.replaceParcel(_parcel('parcel-1', 'Lote actualizado'));
+
+    expect(provider.dataRevision, revision + 1);
+    expect(provider.currentParcel?.name, 'Lote actualizado');
+  });
 }
 
 class _FakeParcelRepository extends ParcelRepository {

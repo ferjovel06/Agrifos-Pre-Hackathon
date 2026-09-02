@@ -19,6 +19,7 @@ class ParcelProvider extends ChangeNotifier {
   String? farmId;
   String? selectedParcelId;
   String? errorMessage;
+  int dataRevision = 0;
 
   Parcel? get currentParcel {
     final selectedId = selectedParcelId;
@@ -36,6 +37,7 @@ class ParcelProvider extends ChangeNotifier {
       selectedParcelId = null;
       status = ParcelStatus.initial;
       errorMessage = null;
+      dataRevision++;
       notifyListeners();
       return;
     }
@@ -62,6 +64,7 @@ class ParcelProvider extends ChangeNotifier {
         _selectionByFarm[nextFarmId] = selectedId;
       }
       status = result.isEmpty ? ParcelStatus.noParcel : ParcelStatus.hasParcel;
+      dataRevision++;
       notifyListeners();
     } on ApiException catch (error) {
       if (farmId != nextFarmId) return;
@@ -91,6 +94,7 @@ class ParcelProvider extends ChangeNotifier {
     parcels = parcels
         .map((parcel) => parcel.id == updated.id ? updated : parcel)
         .toList();
+    dataRevision++;
     notifyListeners();
   }
 }

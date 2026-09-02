@@ -33,6 +33,7 @@ class PhenologicalStageInstance {
   final int? durationDays;
   final DateTime? estimatedDate;
   final DateTime? actualDate;
+  final DateTime? selectedAt;
 
   const PhenologicalStageInstance({
     required this.id,
@@ -43,11 +44,13 @@ class PhenologicalStageInstance {
     required this.durationDays,
     required this.estimatedDate,
     required this.actualDate,
+    required this.selectedAt,
   });
 
   factory PhenologicalStageInstance.fromJson(Map<String, dynamic> json) {
     final actualDate = json['actual_date'] as String?;
     final estimatedDate = json['estimated_date'] as String?;
+    final selectedAt = json['selected_at'] as String?;
     return PhenologicalStageInstance(
       id: json['id'] as String,
       parcelId: json['parcel_id'] as String,
@@ -59,6 +62,7 @@ class PhenologicalStageInstance {
           ? null
           : DateTime.parse(estimatedDate),
       actualDate: actualDate == null ? null : DateTime.parse(actualDate),
+      selectedAt: selectedAt == null ? null : DateTime.parse(selectedAt),
     );
   }
 }

@@ -42,6 +42,8 @@ class _SensorScreenState extends State<SensorScreen> {
   List<PhenologicalStageTemplate> _stageTemplates = const [];
   int? _currentStageOrder;
   String? _loadedParcelId;
+  int _loadedParcelRevision = -1;
+  int _parcelLoadToken = 0;
   String? _parcelError;
   bool _isLoadingParcel = false;
   bool _isLoadingFertilization = false;
@@ -58,15 +60,20 @@ class _SensorScreenState extends State<SensorScreen> {
     super.didChangeDependencies();
     final parcelProvider = context.watch<ParcelProvider>();
     final parcel = parcelProvider.currentParcel;
-    if (parcel != null && parcel.id != _loadedParcelId) {
+    final parcelRevision = parcelProvider.dataRevision;
+    if (parcel != null &&
+        (parcel.id != _loadedParcelId ||
+            parcelRevision != _loadedParcelRevision)) {
       _loadedParcelId = parcel.id;
+      _loadedParcelRevision = parcelRevision;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _loadParcelData(parcel);
+        if (mounted) _loadParcelData(parcel, parcelRevision);
       });
     } else if (parcel == null &&
         parcelProvider.status == ParcelStatus.loading &&
         _loadedParcelId != null) {
       _loadedParcelId = null;
+      _loadedParcelRevision = parcelRevision;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _resetParcelForLoading();
       });
@@ -74,6 +81,7 @@ class _SensorScreenState extends State<SensorScreen> {
         parcelProvider.status == ParcelStatus.noParcel &&
         (_loadedParcelId != null || _parcelError == null)) {
       _loadedParcelId = null;
+      _loadedParcelRevision = parcelRevision;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _clearParcel();
       });
@@ -81,6 +89,7 @@ class _SensorScreenState extends State<SensorScreen> {
   }
 
   void _resetParcelForLoading() {
+    _parcelLoadToken++;
     setState(() {
       _parcel = null;
       _cropName = null;
@@ -96,6 +105,7 @@ class _SensorScreenState extends State<SensorScreen> {
   }
 
   void _clearParcel() {
+    _parcelLoadToken++;
     setState(() {
       _parcel = null;
       _cropName = null;
@@ -111,7 +121,21 @@ class _SensorScreenState extends State<SensorScreen> {
     });
   }
 
-  Future<void> _loadParcelData(Parcel parcel) async {
+  bool _isCurrentParcelLoad(
+    String parcelId,
+    int parcelRevision,
+    int loadToken, {
+    bool requireParcel = false,
+  }) {
+    return mounted &&
+        parcelId == _loadedParcelId &&
+        parcelRevision == _loadedParcelRevision &&
+        loadToken == _parcelLoadToken &&
+        (!requireParcel || _parcel?.id == parcelId);
+  }
+
+  Future<void> _loadParcelData(Parcel parcel, int parcelRevision) async {
+    final loadToken = ++_parcelLoadToken;
     setState(() {
       _isLoadingParcel = true;
       _parcelError = null;
@@ -128,7 +152,7 @@ class _SensorScreenState extends State<SensorScreen> {
     try {
       final cropsFuture = _parcelRepository.getCrops();
       final crops = await cropsFuture;
-      if (!mounted || parcel.id != _loadedParcelId) return;
+      if (!_isCurrentParcelLoad(parcel.id, parcelRevision, loadToken)) return;
 
       final varietiesFuture = _parcelRepository.getVarieties(parcel.cropId);
       final templatesFuture = _parcelRepository.getStageTemplates(
@@ -138,7 +162,7 @@ class _SensorScreenState extends State<SensorScreen> {
       final varieties = await varietiesFuture;
       final templates = await templatesFuture;
       final stages = await stagesFuture;
-      if (!mounted || parcel.id != _loadedParcelId) return;
+      if (!_isCurrentParcelLoad(parcel.id, parcelRevision, loadToken)) return;
       String cropName = 'Sin especificar';
       for (final crop in crops) {
         if (crop.id == parcel.cropId) {
@@ -158,8 +182,9 @@ class _SensorScreenState extends State<SensorScreen> {
       if (stages.isNotEmpty) {
         var currentStage = stages.first;
         for (final stage in stages.skip(1)) {
-          final currentDate = currentStage.actualDate;
-          final candidateDate = stage.actualDate;
+          final currentDate =
+              currentStage.selectedAt ?? currentStage.actualDate;
+          final candidateDate = stage.selectedAt ?? stage.actualDate;
           if (candidateDate != null &&
               (currentDate == null || candidateDate.isAfter(currentDate))) {
             currentStage = stage;
@@ -169,6 +194,7 @@ class _SensorScreenState extends State<SensorScreen> {
         currentStageOrder = currentStage.stageOrder;
       }
 
+      if (!_isCurrentParcelLoad(parcel.id, parcelRevision, loadToken)) return;
       setState(() {
         _parcel = parcel;
         _cropName = cropName;
@@ -178,9 +204,9 @@ class _SensorScreenState extends State<SensorScreen> {
         _currentStageOrder = currentStageOrder;
         _isLoadingParcel = false;
       });
-      await _loadLabAnalyses(parcel.id);
+      await _loadLabAnalyses(parcel, parcelRevision, loadToken);
     } catch (_) {
-      if (!mounted || parcel.id != _loadedParcelId) return;
+      if (!_isCurrentParcelLoad(parcel.id, parcelRevision, loadToken)) return;
       setState(() {
         _isLoadingParcel = false;
         _parcelError = 'No se pudieron cargar los datos de la parcela.';
@@ -188,21 +214,60 @@ class _SensorScreenState extends State<SensorScreen> {
     }
   }
 
-  Future<void> _loadLabAnalyses(String parcelId) async {
+  Future<void> _loadLabAnalyses(
+    Parcel parcel,
+    int parcelRevision,
+    int loadToken,
+  ) async {
+    if (!_isCurrentParcelLoad(
+      parcel.id,
+      parcelRevision,
+      loadToken,
+      requireParcel: true,
+    )) {
+      return;
+    }
     setState(() {
       _isLoadingLabAnalyses = true;
       _labAnalysesError = null;
     });
     try {
-      final analyses = await _labAnalysisRepository.listForParcel(parcelId);
-      if (!mounted || _parcel?.id != parcelId) return;
+      final analyses = await _labAnalysisRepository.listForParcel(parcel.id);
+      if (!_isCurrentParcelLoad(
+        parcel.id,
+        parcelRevision,
+        loadToken,
+        requireParcel: true,
+      )) {
+        return;
+      }
       setState(() {
         _labAnalyses = analyses;
         _isLoadingLabAnalyses = false;
       });
-      await _loadLatestFertilizationPlan(parcelId);
+      if (analyses.isNotEmpty) {
+        await _requestLabRecommendation(
+          parcel,
+          analyses.first,
+          parcelRevision: parcelRevision,
+          loadToken: loadToken,
+        );
+      } else {
+        await _loadLatestFertilizationPlan(
+          parcel.id,
+          parcelRevision,
+          loadToken,
+        );
+      }
     } catch (_) {
-      if (!mounted || _parcel?.id != parcelId) return;
+      if (!_isCurrentParcelLoad(
+        parcel.id,
+        parcelRevision,
+        loadToken,
+        requireParcel: true,
+      )) {
+        return;
+      }
       setState(() {
         _isLoadingLabAnalyses = false;
         _labAnalysesError = 'No se pudieron cargar los análisis.';
@@ -210,7 +275,19 @@ class _SensorScreenState extends State<SensorScreen> {
     }
   }
 
-  Future<void> _loadLatestFertilizationPlan(String parcelId) async {
+  Future<void> _loadLatestFertilizationPlan(
+    String parcelId,
+    int parcelRevision,
+    int loadToken,
+  ) async {
+    if (!_isCurrentParcelLoad(
+      parcelId,
+      parcelRevision,
+      loadToken,
+      requireParcel: true,
+    )) {
+      return;
+    }
     setState(() {
       _isLoadingFertilization = true;
       _fertilizationError = null;
@@ -219,25 +296,53 @@ class _SensorScreenState extends State<SensorScreen> {
       final recommendation = await _fertilizationRepository.getLatestPlan(
         parcelId,
       );
-      if (!mounted || _parcel?.id != parcelId) return;
+      if (!_isCurrentParcelLoad(
+        parcelId,
+        parcelRevision,
+        loadToken,
+        requireParcel: true,
+      )) {
+        return;
+      }
       setState(() {
         _fertilizationRecommendation = recommendation;
         _isLoadingFertilization = false;
       });
     } on ApiAuthException catch (error) {
-      if (!mounted) return;
+      if (!_isCurrentParcelLoad(
+        parcelId,
+        parcelRevision,
+        loadToken,
+        requireParcel: true,
+      )) {
+        return;
+      }
       setState(() {
         _isLoadingFertilization = false;
         _fertilizationError = error.message;
       });
     } on ApiException catch (error) {
-      if (!mounted || _parcel?.id != parcelId) return;
+      if (!_isCurrentParcelLoad(
+        parcelId,
+        parcelRevision,
+        loadToken,
+        requireParcel: true,
+      )) {
+        return;
+      }
       setState(() {
         _isLoadingFertilization = false;
         _fertilizationError = _fertilizationErrorMessage(error.message);
       });
     } catch (_) {
-      if (!mounted || _parcel?.id != parcelId) return;
+      if (!_isCurrentParcelLoad(
+        parcelId,
+        parcelRevision,
+        loadToken,
+        requireParcel: true,
+      )) {
+        return;
+      }
       setState(() {
         _isLoadingFertilization = false;
         _fertilizationError = 'No se pudo actualizar el plan guardado.';
@@ -247,8 +352,20 @@ class _SensorScreenState extends State<SensorScreen> {
 
   Future<void> _requestLabRecommendation(
     Parcel parcel,
-    LabAnalysis analysis,
-  ) async {
+    LabAnalysis analysis, {
+    int? parcelRevision,
+    int? loadToken,
+  }) async {
+    final requestRevision = parcelRevision ?? _loadedParcelRevision;
+    final requestToken = loadToken ?? _parcelLoadToken;
+    if (!_isCurrentParcelLoad(
+      parcel.id,
+      requestRevision,
+      requestToken,
+      requireParcel: true,
+    )) {
+      return;
+    }
     final targetYield = _usesExpectedYield ? _targetYieldValue : null;
     if (_usesExpectedYield && targetYield == null) {
       setState(() {
@@ -282,7 +399,14 @@ class _SensorScreenState extends State<SensorScreen> {
             yieldUnit: 'qq_gold_ha',
             fruitStage: _fruitStageFor(_stageName),
           );
-      if (!mounted || _parcel?.id != parcel.id) return;
+      if (!_isCurrentParcelLoad(
+        parcel.id,
+        requestRevision,
+        requestToken,
+        requireParcel: true,
+      )) {
+        return;
+      }
       setState(() {
         _fertilizationRecommendation = recommendation;
         _isLoadingFertilization = false;
@@ -293,19 +417,40 @@ class _SensorScreenState extends State<SensorScreen> {
             : null;
       });
     } on ApiAuthException catch (error) {
-      if (!mounted) return;
+      if (!_isCurrentParcelLoad(
+        parcel.id,
+        requestRevision,
+        requestToken,
+        requireParcel: true,
+      )) {
+        return;
+      }
       setState(() {
         _isLoadingFertilization = false;
         _fertilizationError = error.message;
       });
     } on ApiException catch (error) {
-      if (!mounted) return;
+      if (!_isCurrentParcelLoad(
+        parcel.id,
+        requestRevision,
+        requestToken,
+        requireParcel: true,
+      )) {
+        return;
+      }
       setState(() {
         _isLoadingFertilization = false;
         _fertilizationError = _fertilizationErrorMessage(error.message);
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!_isCurrentParcelLoad(
+        parcel.id,
+        requestRevision,
+        requestToken,
+        requireParcel: true,
+      )) {
+        return;
+      }
       setState(() {
         _isLoadingFertilization = false;
         _fertilizationError =
@@ -325,10 +470,7 @@ class _SensorScreenState extends State<SensorScreen> {
       ),
     );
     if (!mounted) return;
-    await _loadLabAnalyses(parcel.id);
-    if (_labAnalyses.isNotEmpty) {
-      await _requestLabRecommendation(parcel, _labAnalyses.first);
-    }
+    await _loadLabAnalyses(parcel, _loadedParcelRevision, _parcelLoadToken);
   }
 
   Future<void> _refresh() async {
@@ -337,7 +479,9 @@ class _SensorScreenState extends State<SensorScreen> {
     final provider = context.read<ParcelProvider>();
     await provider.loadForFarm(farmId, force: true);
     final parcel = provider.currentParcel;
-    if (parcel != null) await _loadParcelData(parcel);
+    if (parcel != null) {
+      await _loadParcelData(parcel, provider.dataRevision);
+    }
   }
 
   void _openFertilizationPlan() {
@@ -394,14 +538,19 @@ class _SensorScreenState extends State<SensorScreen> {
             ),
             const SizedBox(height: 16),
             ConventionalFertilizationCard(
-              scenario: _fertilizationRecommendation?.conventionalScenario,
+              scenario:
+                  _fertilizationRecommendation?.diagnosticSummaryScenario,
+              application:
+                  _fertilizationRecommendation?.nextYoungCropApplication,
               isLoading: _isLoadingFertilization,
               onViewDetails: _fertilizationRecommendation == null
                   ? null
                   : _openFertilizationPlan,
               emptyMessage:
                   _fertilizationError ??
-                  'Captura una muestra para generar las fuentes y dosis.',
+                  (_fertilizationRecommendation?.usesYoungCropSchedule == true
+                      ? 'No hay aplicaciones pendientes en el calendario de levante.'
+                      : 'Captura una muestra para generar las fuentes y dosis.'),
             ),
           ],
         ),
@@ -419,9 +568,18 @@ class _SensorScreenState extends State<SensorScreen> {
     }
 
     if (sensor.lastReading == null) return;
+    final parcelRevision = _loadedParcelRevision;
+    final loadToken = _parcelLoadToken;
+    final latestReadingProvider = context.read<LatestReadingProvider>();
     await sensor.saveCurrentReading(parcel.id);
-    if (sensor.saveStatus == SaveStatus.saved && mounted) {
-      context.read<LatestReadingProvider>().fetchLatest(parcel.id);
+    if (sensor.saveStatus == SaveStatus.saved &&
+        _isCurrentParcelLoad(
+          parcel.id,
+          parcelRevision,
+          loadToken,
+          requireParcel: true,
+        )) {
+      latestReadingProvider.fetchLatest(parcel.id);
       final diagnosis = sensor.savedDiagnosis;
       final savedReading = sensor.savedReading;
       final reading = sensor.lastReading;
@@ -442,6 +600,16 @@ class _SensorScreenState extends State<SensorScreen> {
     required SensorReading reading,
     required SensorDiagnostic diagnosis,
   }) async {
+    final parcelRevision = _loadedParcelRevision;
+    final loadToken = _parcelLoadToken;
+    if (!_isCurrentParcelLoad(
+      parcel.id,
+      parcelRevision,
+      loadToken,
+      requireParcel: true,
+    )) {
+      return;
+    }
     final targetYield = _usesExpectedYield ? _targetYieldValue : null;
     if (_usesExpectedYield && targetYield == null) {
       setState(() {
@@ -478,7 +646,14 @@ class _SensorScreenState extends State<SensorScreen> {
             ph: reading.ph,
             electricalConductivity: reading.ec / 1000,
           );
-      if (!mounted) return;
+      if (!_isCurrentParcelLoad(
+        parcel.id,
+        parcelRevision,
+        loadToken,
+        requireParcel: true,
+      )) {
+        return;
+      }
       setState(() {
         _fertilizationRecommendation = recommendation;
         _isLoadingFertilization = false;
@@ -489,19 +664,40 @@ class _SensorScreenState extends State<SensorScreen> {
             : null;
       });
     } on ApiAuthException catch (error) {
-      if (!mounted) return;
+      if (!_isCurrentParcelLoad(
+        parcel.id,
+        parcelRevision,
+        loadToken,
+        requireParcel: true,
+      )) {
+        return;
+      }
       setState(() {
         _isLoadingFertilization = false;
         _fertilizationError = error.message;
       });
     } on ApiException catch (error) {
-      if (!mounted) return;
+      if (!_isCurrentParcelLoad(
+        parcel.id,
+        parcelRevision,
+        loadToken,
+        requireParcel: true,
+      )) {
+        return;
+      }
       setState(() {
         _isLoadingFertilization = false;
         _fertilizationError = _fertilizationErrorMessage(error.message);
       });
     } catch (error) {
-      if (!mounted) return;
+      if (!_isCurrentParcelLoad(
+        parcel.id,
+        parcelRevision,
+        loadToken,
+        requireParcel: true,
+      )) {
+        return;
+      }
       setState(() {
         _isLoadingFertilization = false;
         _fertilizationError =
@@ -690,7 +886,12 @@ class _SensorScreenState extends State<SensorScreen> {
               tooltip: 'Reintentar',
               onPressed: () {
                 final parcel = context.read<ParcelProvider>().currentParcel;
-                if (parcel != null) _loadParcelData(parcel);
+                if (parcel != null) {
+                  _loadParcelData(
+                    parcel,
+                    context.read<ParcelProvider>().dataRevision,
+                  );
+                }
               },
               icon: const Icon(Icons.refresh),
             ),

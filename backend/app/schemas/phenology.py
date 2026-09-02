@@ -1,5 +1,5 @@
 import uuid
-from datetime import date
+from datetime import date, datetime
 
 from pydantic import BaseModel, Field, ConfigDict
 
@@ -50,3 +50,4 @@ class StageInstanceRead(BaseModel):
     duration_days: int | None
     estimated_date: date | None
     actual_date: date | None
+    selected_at: datetime

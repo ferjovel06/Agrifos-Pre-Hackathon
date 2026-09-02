@@ -6,12 +6,14 @@ class ConventionalFertilizationCard extends StatelessWidget {
   const ConventionalFertilizationCard({
     super.key,
     required this.scenario,
+    this.application,
     this.isLoading = false,
     this.onViewDetails,
     this.emptyMessage = 'Captura una muestra para generar las fuentes y dosis.',
   });
 
   final FertilizerScenario? scenario;
+  final FertilizerApplication? application;
   final bool isLoading;
   final VoidCallback? onViewDetails;
   final String emptyMessage;
@@ -23,6 +25,9 @@ class ConventionalFertilizationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final currentScenario = scenario;
+    final currentApplication = application;
+    final hasRecommendation =
+        currentApplication != null || currentScenario != null;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
@@ -78,22 +83,32 @@ class ConventionalFertilizationCard extends StatelessWidget {
           const SizedBox(height: 22),
           if (isLoading)
             const Center(child: CircularProgressIndicator())
-          else if (currentScenario == null)
+          else if (!hasRecommendation)
             _UnavailableState(message: emptyMessage)
           else ...[
+            if (currentApplication != null) ...[
+              _ApplicationLabel(application: currentApplication),
+              const SizedBox(height: 18),
+            ],
             _NutrientRow(
               label: 'FUENTE DE NITRÓGENO',
-              product: currentScenario.sourceFor('N'),
+              product:
+                  currentApplication?.sourceFor('N') ??
+                  currentScenario?.sourceFor('N'),
             ),
             const Divider(height: 28, color: Color(0xFFEDE8E5)),
             _NutrientRow(
               label: 'FUENTE DE FÓSFORO',
-              product: currentScenario.sourceFor('P2O5'),
+              product:
+                  currentApplication?.sourceFor('P2O5') ??
+                  currentScenario?.sourceFor('P2O5'),
             ),
             const Divider(height: 28, color: Color(0xFFEDE8E5)),
             _NutrientRow(
               label: 'FUENTE DE POTASIO',
-              product: currentScenario.sourceFor('K2O'),
+              product:
+                  currentApplication?.sourceFor('K2O') ??
+                  currentScenario?.sourceFor('K2O'),
             ),
             if (onViewDetails != null) ...[
               const SizedBox(height: 18),
@@ -104,6 +119,51 @@ class ConventionalFertilizationCard extends StatelessWidget {
               ),
             ],
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ApplicationLabel extends StatelessWidget {
+  const _ApplicationLabel({required this.application});
+
+  final FertilizerApplication application;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F6F2),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.event_available_outlined,
+            color: Color(0xFF2F6842),
+            size: 19,
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              'Próxima aplicación: ${application.moment}',
+              style: const TextStyle(
+                color: Color(0xFF2F6842),
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          Text(
+            '${(application.fraction * 100).toStringAsFixed(0)} %',
+            style: const TextStyle(
+              color: Color(0xFF2F6842),
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
         ],
       ),
     );

@@ -22,7 +22,7 @@ from app.services.agronomic_config import (
 )
 
 
-ENGINE_VERSION = "coffee-fertilization-1.0.0"
+ENGINE_VERSION = "coffee-fertilization-1.0.1"
 RECOMMENDATION_STATUS = "decision_support"
 
 class FertilizationInputError(ValueError):
@@ -417,6 +417,7 @@ def _young_crop_scenario(
         ApplicationRead(
             application_number=index,
             moment=rule.moment,
+            month_after_planting=rule.month_after_planting,
             fraction=_round(rule.fraction),
             products=[
                 ProductDoseRead(
@@ -490,6 +491,35 @@ def calculate_fertilization_recommendation(
             "Electrical conductivity is too high for an automatic fertilizer plan."
         )
 
+    if plant_age_months <= 3:
+        return FertilizationRecommendationRead(
+            parcel_id=request.parcel_id,
+            crop=crop_name,
+            variety=variety_name,
+            plant_age_months=plant_age_months,
+            life_stage=life_stage,
+            fruit_stage=request.fruit_stage,
+            target_green_kg_ha=0,
+            engine_version=ENGINE_VERSION,
+            recommendation_status="initial_nursery_no_field_dose",
+            nutrient_requirements=[],
+            fertilizer_scenarios=[],
+            limiting_nutrients=[],
+            warnings=[
+                (
+                    "En vivero inicial (0 a 3 meses) no se emiten dosis de "
+                    "fertilizaci\u00f3n de campo. Priorice el manejo del sustrato, "
+                    "el riego y el seguimiento t\u00e9cnico de la pl\u00e1ntula."
+                )
+            ],
+            assumptions=[
+                (
+                    f"Referencia: {config.reference_key} "
+                    f"v{config.reference_version}."
+                )
+            ],
+        )
+
     if plant_age_months <= 24:
         young_scenario, nutrient_rows = _young_crop_scenario(
             request,
@@ -511,12 +541,7 @@ def calculate_fertilization_recommendation(
             "Revisar las aplicaciones ya realizadas antes de usar el plan.",
             "El plan se distribuye entre los meses 2, 6, 10, 14 y 18.",
         ]
-        if plant_age_months <= 3:
-            warnings.insert(
-                0,
-                "En vivero inicial, manejar estas aplicaciones en el sustrato; no corresponden a una dosis productiva de campo.",
-            )
-        elif plant_age_months <= 8:
+        if plant_age_months <= 8:
             warnings.insert(
                 0,
                 "En vivero avanzado, fraccionar los nutrientes y vigilar la conductividad eléctrica.",

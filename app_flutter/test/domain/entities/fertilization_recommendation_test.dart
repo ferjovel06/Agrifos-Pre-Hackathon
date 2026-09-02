@@ -37,6 +37,7 @@ void main() {
             {
               'application_number': 1,
               'moment': 'Inicio de lluvias',
+              'month_after_planting': 6,
               'fraction': 0.25,
               'products': [_productJson(6.25)],
             },
@@ -60,8 +61,49 @@ void main() {
       recommendation.scenarios.single.applicationSchedule.single.fraction,
       0.25,
     );
+    expect(
+      recommendation
+          .scenarios
+          .single
+          .applicationSchedule
+          .single
+          .monthAfterPlanting,
+      6,
+    );
     expect(recommendation.limitingNutrients, ['N']);
     expect(recommendation.assumptions, ['Eficiencia de referencia.']);
+  });
+
+  test('selects the next pending young-crop application by age', () {
+    const scenario = FertilizerScenario(
+      name: 'Plan joven',
+      products: [],
+      applicationSchedule: [
+        FertilizerApplication(
+          number: 1,
+          moment: 'Mes 2 de levante',
+          monthAfterPlanting: 2,
+          fraction: 0.20,
+          products: [],
+        ),
+        FertilizerApplication(
+          number: 2,
+          moment: 'Mes 6 de levante',
+          monthAfterPlanting: 6,
+          fraction: 0.20,
+          products: [],
+        ),
+      ],
+    );
+    const recommendation = FertilizationRecommendation(
+      plantAgeMonths: 4,
+      status: 'young_crop_reference',
+      scenarios: [scenario],
+      warnings: [],
+    );
+
+    expect(recommendation.nextYoungCropApplication?.monthAfterPlanting, 6);
+    expect(recommendation.diagnosticSummaryScenario, isNull);
   });
 }
 
