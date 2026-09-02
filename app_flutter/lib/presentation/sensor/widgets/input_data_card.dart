@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class InputDataCard extends StatelessWidget {
   const InputDataCard({
@@ -9,6 +10,12 @@ class InputDataCard extends StatelessWidget {
     required this.stageName,
     required this.ageMonths,
     required this.plantsPerHectare,
+    required this.targetYield,
+    required this.onTargetYieldChanged,
+    required this.onTargetYieldSubmitted,
+    required this.onRecalculate,
+    required this.isRecalculating,
+    this.targetYieldError,
   });
 
   final String parcelName;
@@ -17,6 +24,12 @@ class InputDataCard extends StatelessWidget {
   final String stageName;
   final int ageMonths;
   final int? plantsPerHectare;
+  final String targetYield;
+  final String? targetYieldError;
+  final ValueChanged<String> onTargetYieldChanged;
+  final ValueChanged<String> onTargetYieldSubmitted;
+  final VoidCallback? onRecalculate;
+  final bool isRecalculating;
 
   static const _titleColor = Color(0xFF472319);
   static const _brandGreen = Color(0xFF31543B);
@@ -56,6 +69,7 @@ class InputDataCard extends StatelessWidget {
                 ),
               ),
               Container(
+                constraints: const BoxConstraints(maxWidth: 120),
                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF1F5F0),
@@ -63,6 +77,8 @@ class InputDataCard extends StatelessWidget {
                 ),
                 child: Text(
                   parcelName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: _brandGreen,
                     fontSize: 11,
@@ -93,8 +109,106 @@ class InputDataCard extends StatelessWidget {
               ),
             ],
           ),
+          if (ageMonths >= 25) ...[
+            const SizedBox(height: 14),
+            _ExpectedYieldField(
+              initialValue: targetYield,
+              errorText: targetYieldError,
+              isRecalculating: isRecalculating,
+              onChanged: onTargetYieldChanged,
+              onSubmitted: onTargetYieldSubmitted,
+              onRecalculate: onRecalculate,
+            ),
+          ],
         ],
       ),
+    );
+  }
+}
+
+class _ExpectedYieldField extends StatelessWidget {
+  const _ExpectedYieldField({
+    required this.initialValue,
+    required this.errorText,
+    required this.isRecalculating,
+    required this.onChanged,
+    required this.onSubmitted,
+    required this.onRecalculate,
+  });
+
+  final String initialValue;
+  final String? errorText;
+  final bool isRecalculating;
+  final ValueChanged<String> onChanged;
+  final ValueChanged<String> onSubmitted;
+  final VoidCallback? onRecalculate;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'RENDIMIENTO ESPERADO',
+          style: TextStyle(
+            color: Colors.grey.shade500,
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.4,
+          ),
+        ),
+        const SizedBox(height: 7),
+        TextFormField(
+          initialValue: initialValue,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          textInputAction: TextInputAction.done,
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+          ],
+          onChanged: onChanged,
+          onFieldSubmitted: onSubmitted,
+          decoration: InputDecoration(
+            suffixText: 'qq oro/ha',
+            helperText: 'Confirma el valor para recalcular la recomendación.',
+            errorText: errorText,
+            filled: true,
+            fillColor: InputDataCard._fieldBackground,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 13,
+              vertical: 13,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(11),
+              borderSide: const BorderSide(color: Color(0xFFE8DDD7)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(11),
+              borderSide: const BorderSide(color: Color(0xFFE8DDD7)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(11),
+              borderSide: const BorderSide(
+                color: InputDataCard._brandGreen,
+                width: 1.5,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Align(
+          alignment: Alignment.centerRight,
+          child: FilledButton.icon(
+            onPressed: isRecalculating ? null : onRecalculate,
+            icon: isRecalculating
+                ? const SizedBox.square(
+                    dimension: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.calculate_outlined, size: 18),
+            label: Text(isRecalculating ? 'Calculando...' : 'Recalcular plan'),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -32,7 +32,7 @@ Sistema de asistencia agrícola compuesto por una plataforma digital interactiva
 2. **App (Flutter):** detecta el sensor conectado por OTG, permite capturar análisis de laboratorio y consume la API REST. Supabase Auth gestiona registro, confirmación de correo, sesiones, recuperación de contraseña y MFA TOTP. Las pestañas de planificación y finanzas conservan por ahora una interfaz de demostración.
 3. **Backend (FastAPI):** valida los JWT de Supabase, aplica permisos por rol, persiste la información en PostgreSQL y expone los servicios de diagnóstico, fertilización, fenología y clima. Los modelos financieros existen, pero su router todavía no está publicado por la API.
 4. **Servicio externo de clima:** proveedor meteorológico de terceros consultado por el backend para generar alertas predictivas (lluvias, canículas, olas de calor).
-5. **Base de datos (PostgreSQL):** modelo relacional objetivo de 27 entidades, incluidas referencias agronómicas versionadas consumidas por los motores de diagnóstico y fertilización — ver [Modelo de datos](#modelo-de-datos) para el detalle completo.
+5. **Base de datos (PostgreSQL):** modelo relacional objetivo de 27 entidades, incluidas referencias agronómicas versionadas, etapas fenológicas normalizadas y recomendaciones de fertilización persistidas — ver [Modelo de datos](#modelo-de-datos) para el detalle completo.
 
 ## Modelo de datos
 El diagrama ER completo del modelo objetivo (27 entidades, 41 relaciones) está versionado en [`docs/diagrams/er_diagrams/agrifos_er_diagram.mmd`](docs/diagrams/er_diagrams/agrifos_er_diagram.mmd) (formato [Mermaid](https://mermaid.live)). También se divide en vistas por módulo para facilitar su lectura:
@@ -51,9 +51,9 @@ El diagrama ER completo del modelo objetivo (27 entidades, 41 relaciones) está 
 |---|---|
 | Usuarios y estructura de finca | `User`, `Farm`, `Parcel`, `Crop`, `Variety` |
 | Datos de suelo | `Reading` (sensor OTG), `LabAnalysis` (laboratorio) |
-| Fenología | `PhenologicalStageTemplate` define las etapas reutilizables de cada cultivo y `ParcelPhenologicalStage` registra las fechas estimadas y reales de cada etapa en una parcela |
+| Fenología | `PhenologicalStageTemplate` define el ciclo estándar y las etapas reutilizables de cada cultivo; `ParcelPhenologicalStage` registra las fechas estimadas y reales de cada parcela |
 | Referencias agronómicas versionadas | `AgronomicReferenceSet`, `SoilReferenceRange`, `FertilizerProduct`, `FertilizerProductNutrient`, `ApplicationScheduleRule`, `AgronomicParameter`, `OptimalRequirement`, `ExtractionIndex`, `VarietyFactor`, `StageFactor`, `SoilType`, `EfficiencyFactor` |
-| Resultado del motor | `FertilizationPlan` conserva el contexto y resultado generado a partir de `Reading` **o** `LabAnalysis`; `FertilizationPlanItem` detalla los escenarios, productos, dosis y aplicaciones recomendadas |
+| Resultado del motor | `FertilizationPlan` y `FertilizationPlanItem` conservan la versión del motor, la fuente, los escenarios, los productos, las dosis y el calendario de aplicación generado |
 | Alertas | `Alert` — `farm_id` obligatorio (alcance por defecto: toda la finca, ej. riesgo climático), `parcel_id` opcional (acota a una parcela, ej. alertas fenológicas) |
 | Finanzas | `Expense`, `Income`, `Production` (una `Production` puede agregarse a un `Income` compartido con otras) |
 
@@ -104,7 +104,7 @@ Los detalles completos del motor agronómico se distribuyen en los documentos de
 
 ## Motor de Cálculo
 
-El motor agronómico combina los datos del suelo con el cultivo, la variedad, la etapa fenológica, la densidad de siembra y el rendimiento objetivo para estimar el balance nutricional de N, P y K. Sus rangos, parámetros, productos, factores y calendarios activos se cargan desde referencias agronómicas versionadas en PostgreSQL; el backend conserva temporalmente la configuración inmutable para evitar consultas repetidas.
+El motor agronómico combina los datos del suelo con el cultivo, la variedad, la etapa fenológica, la densidad de siembra y el rendimiento objetivo para estimar el balance nutricional de N, P y K. Sus rangos, parámetros, productos, factores y calendarios activos se cargan desde referencias agronómicas versionadas en PostgreSQL; el backend conserva temporalmente la configuración inmutable para evitar consultas repetidas y reutiliza planes idénticos mediante una huella determinista de sus entradas y resultados.
 
 - **Entradas:** lecturas del sensor 7-en-1 o resultados de laboratorio, datos de la parcela y contexto fenológico.
 - **Proceso:** normalización de unidades, evaluación del aporte del suelo, estimación del déficit y ajuste por eficiencia agronómica.
@@ -301,7 +301,7 @@ flutter test
 
 ## Ejemplos de endpoints
 
-Base URL desplegada: `https://agrifos-api.onrender.com` (sin prefijo `/v1`). La especificación completa y ejecutable está en [Swagger UI](https://agrifos-api.onrender.com/docs).
+Base URL desplegada: `https://agrifos-api.onrender.com`. La especificación completa y ejecutable está en [Swagger UI](https://agrifos-api.onrender.com/docs).
 
 Los objetos de respuesta mostrados son abreviados para facilitar la lectura; Swagger contiene el contrato completo.
 

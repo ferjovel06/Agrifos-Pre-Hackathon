@@ -7,26 +7,34 @@ from app.models.mixins import UUIDPKMixin
 
 
 class OptimalRequirement(Base, UUIDPKMixin):
-    """Rango óptimo de un nutriente por cultivo + etapa (para diagnóstico)."""
+    """Optimal nutrient range for a crop and phenological stage."""
     __tablename__ = "optimal_requirements"
+
+    reference_set_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("agronomic_reference_sets.id", ondelete="RESTRICT"), nullable=True
+    )
 
     crop_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("crops.id"), nullable=False)
     stage_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("phenological_stages.id"), nullable=False
+        ForeignKey("phenological_stage_templates.id"), nullable=False
     )
     nutrient: Mapped[str] = mapped_column(String(30))
     min_value: Mapped[float] = mapped_column(Float)
     max_value: Mapped[float] = mapped_column(Float)
 
     crop: Mapped["Crop"] = relationship(back_populates="optimal_requirements")
-    stage: Mapped["PhenologicalStage"] = relationship(
+    stage: Mapped["PhenologicalStageTemplate"] = relationship(
         back_populates="optimal_requirements"
     )
 
 
 class ExtractionIndex(Base, UUIDPKMixin):
-    """I_e: índice de extracción base por cultivo."""
+    """Base nutrient extraction index for a crop."""
     __tablename__ = "extraction_indices"
+
+    reference_set_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("agronomic_reference_sets.id", ondelete="RESTRICT"), nullable=True
+    )
 
     crop_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("crops.id"), nullable=False)
     nutrient: Mapped[str] = mapped_column(String(30))
@@ -36,8 +44,12 @@ class ExtractionIndex(Base, UUIDPKMixin):
 
 
 class VarietyFactor(Base, UUIDPKMixin):
-    """f_v: factor de corrección por variedad."""
+    """Nutrient correction factor for a crop variety."""
     __tablename__ = "variety_factors"
+
+    reference_set_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("agronomic_reference_sets.id", ondelete="RESTRICT"), nullable=True
+    )
 
     variety_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("varieties.id"), nullable=False
@@ -49,16 +61,22 @@ class VarietyFactor(Base, UUIDPKMixin):
 
 
 class StageFactor(Base, UUIDPKMixin):
-    """f_e: factor de distribución por etapa fenológica."""
+    """Nutrient distribution factor for a phenological stage."""
     __tablename__ = "stage_factors"
 
+    reference_set_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("agronomic_reference_sets.id", ondelete="RESTRICT"), nullable=True
+    )
+
     stage_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("phenological_stages.id"), nullable=False
+        ForeignKey("phenological_stage_templates.id"), nullable=False
     )
     nutrient: Mapped[str] = mapped_column(String(30))
     fe_factor: Mapped[float] = mapped_column(Float)
 
-    stage: Mapped["PhenologicalStage"] = relationship(back_populates="factors")
+    stage: Mapped["PhenologicalStageTemplate"] = relationship(
+        back_populates="factors"
+    )
 
 
 class SoilType(Base, UUIDPKMixin):
@@ -73,8 +91,12 @@ class SoilType(Base, UUIDPKMixin):
 
 
 class EfficiencyFactor(Base, UUIDPKMixin):
-    """E_f: eficiencia de absorción por nutriente + tipo de suelo."""
+    """Nutrient absorption-efficiency range for a soil type."""
     __tablename__ = "efficiency_factors"
+
+    reference_set_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("agronomic_reference_sets.id", ondelete="RESTRICT"), nullable=True
+    )
 
     soil_type_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("soil_types.id"), nullable=False

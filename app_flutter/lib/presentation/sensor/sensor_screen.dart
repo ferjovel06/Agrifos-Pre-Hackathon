@@ -11,8 +11,9 @@ import '../../domain/entities/lab_analysis.dart';
 import '../../domain/entities/parcel.dart';
 import '../../domain/entities/phenological_stage.dart';
 import '../../domain/entities/sensor_diagnostic.dart';
-import '../../domain/reference/soil_reference_ranges.dart';
 import '../farm/farm_provider.dart';
+import '../farm/parcel_provider.dart';
+import '../fertilization/fertilization_plan_screen.dart';
 import '../home/latest_reading_provider.dart';
 import '../lab_analysis/lab_analysis_screen.dart';
 import 'sensor_provider.dart';
@@ -40,13 +41,16 @@ class _SensorScreenState extends State<SensorScreen> {
   String? _stageName;
   List<PhenologicalStageTemplate> _stageTemplates = const [];
   int? _currentStageOrder;
-  String? _loadedFarmId;
-  int? _loadedParcelRevision;
+  String? _loadedParcelId;
+  int _loadedParcelRevision = -1;
+  int _parcelLoadToken = 0;
   String? _parcelError;
   bool _isLoadingParcel = false;
   bool _isLoadingFertilization = false;
   FertilizationRecommendation? _fertilizationRecommendation;
   String? _fertilizationError;
+  String _targetYieldText = '20';
+  String? _targetYieldError;
   List<LabAnalysis> _labAnalyses = const [];
   bool _isLoadingLabAnalyses = false;
   String? _labAnalysesError;
@@ -54,50 +58,102 @@ class _SensorScreenState extends State<SensorScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final farmProvider = context.watch<FarmProvider>();
-    final farmId = farmProvider.currentFarm?.id;
-    final parcelRevision = farmProvider.parcelRevision;
-    if (farmId != null &&
-        (farmId != _loadedFarmId || parcelRevision != _loadedParcelRevision)) {
-      _loadedFarmId = farmId;
+    final parcelProvider = context.watch<ParcelProvider>();
+    final parcel = parcelProvider.currentParcel;
+    final parcelRevision = parcelProvider.dataRevision;
+    if (parcel != null &&
+        (parcel.id != _loadedParcelId ||
+            parcelRevision != _loadedParcelRevision)) {
+      _loadedParcelId = parcel.id;
       _loadedParcelRevision = parcelRevision;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _loadParcelData(farmId);
+        if (mounted) _loadParcelData(parcel, parcelRevision);
+      });
+    } else if (parcel == null &&
+        parcelProvider.status == ParcelStatus.loading &&
+        _loadedParcelId != null) {
+      _loadedParcelId = null;
+      _loadedParcelRevision = parcelRevision;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _resetParcelForLoading();
+      });
+    } else if (parcel == null &&
+        parcelProvider.status == ParcelStatus.noParcel &&
+        (_loadedParcelId != null || _parcelError == null)) {
+      _loadedParcelId = null;
+      _loadedParcelRevision = parcelRevision;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _clearParcel();
       });
     }
   }
 
-  Future<void> _loadParcelData(String farmId) async {
+  void _resetParcelForLoading() {
+    _parcelLoadToken++;
+    setState(() {
+      _parcel = null;
+      _cropName = null;
+      _varietyName = null;
+      _stageName = null;
+      _stageTemplates = const [];
+      _currentStageOrder = null;
+      _labAnalyses = const [];
+      _fertilizationRecommendation = null;
+      _parcelError = null;
+      _isLoadingParcel = true;
+    });
+  }
+
+  void _clearParcel() {
+    _parcelLoadToken++;
+    setState(() {
+      _parcel = null;
+      _cropName = null;
+      _varietyName = null;
+      _stageName = null;
+      _stageTemplates = const [];
+      _currentStageOrder = null;
+      _labAnalyses = const [];
+      _fertilizationRecommendation = null;
+      _labAnalysesError = null;
+      _isLoadingParcel = false;
+      _parcelError = 'Registra una parcela antes de realizar un diagnóstico.';
+    });
+  }
+
+  bool _isCurrentParcelLoad(
+    String parcelId,
+    int parcelRevision,
+    int loadToken, {
+    bool requireParcel = false,
+  }) {
+    return mounted &&
+        parcelId == _loadedParcelId &&
+        parcelRevision == _loadedParcelRevision &&
+        loadToken == _parcelLoadToken &&
+        (!requireParcel || _parcel?.id == parcelId);
+  }
+
+  Future<void> _loadParcelData(Parcel parcel, int parcelRevision) async {
+    final loadToken = ++_parcelLoadToken;
     setState(() {
       _isLoadingParcel = true;
       _parcelError = null;
+      _parcel = null;
+      _cropName = null;
+      _varietyName = null;
+      _stageName = null;
+      _stageTemplates = const [];
+      _currentStageOrder = null;
+      _labAnalyses = const [];
+      _fertilizationRecommendation = null;
     });
 
     try {
-      final parcelsFuture = _parcelRepository.getParcels(farmId);
       final cropsFuture = _parcelRepository.getCrops();
-      final parcels = await parcelsFuture;
       final crops = await cropsFuture;
-      if (!mounted || farmId != _loadedFarmId) return;
+      if (!_isCurrentParcelLoad(parcel.id, parcelRevision, loadToken)) return;
 
-      if (parcels.isEmpty) {
-        setState(() {
-          _parcel = null;
-          _cropName = null;
-          _varietyName = null;
-          _stageName = null;
-          _stageTemplates = const [];
-          _currentStageOrder = null;
-          _labAnalyses = const [];
-          _labAnalysesError = null;
-          _isLoadingParcel = false;
-          _parcelError =
-              'Registra una parcela antes de realizar un diagnóstico.';
-        });
-        return;
-      }
-
-      final parcel = parcels.first;
       final varietiesFuture = _parcelRepository.getVarieties(parcel.cropId);
       final templatesFuture = _parcelRepository.getStageTemplates(
         parcel.cropId,
@@ -106,7 +162,7 @@ class _SensorScreenState extends State<SensorScreen> {
       final varieties = await varietiesFuture;
       final templates = await templatesFuture;
       final stages = await stagesFuture;
-      if (!mounted || farmId != _loadedFarmId) return;
+      if (!_isCurrentParcelLoad(parcel.id, parcelRevision, loadToken)) return;
       String cropName = 'Sin especificar';
       for (final crop in crops) {
         if (crop.id == parcel.cropId) {
@@ -126,8 +182,9 @@ class _SensorScreenState extends State<SensorScreen> {
       if (stages.isNotEmpty) {
         var currentStage = stages.first;
         for (final stage in stages.skip(1)) {
-          final currentDate = currentStage.actualDate;
-          final candidateDate = stage.actualDate;
+          final currentDate =
+              currentStage.selectedAt ?? currentStage.actualDate;
+          final candidateDate = stage.selectedAt ?? stage.actualDate;
           if (candidateDate != null &&
               (currentDate == null || candidateDate.isAfter(currentDate))) {
             currentStage = stage;
@@ -137,6 +194,7 @@ class _SensorScreenState extends State<SensorScreen> {
         currentStageOrder = currentStage.stageOrder;
       }
 
+      if (!_isCurrentParcelLoad(parcel.id, parcelRevision, loadToken)) return;
       setState(() {
         _parcel = parcel;
         _cropName = cropName;
@@ -146,9 +204,9 @@ class _SensorScreenState extends State<SensorScreen> {
         _currentStageOrder = currentStageOrder;
         _isLoadingParcel = false;
       });
-      await _loadLabAnalyses(parcel.id);
+      await _loadLabAnalyses(parcel, parcelRevision, loadToken);
     } catch (_) {
-      if (!mounted) return;
+      if (!_isCurrentParcelLoad(parcel.id, parcelRevision, loadToken)) return;
       setState(() {
         _isLoadingParcel = false;
         _parcelError = 'No se pudieron cargar los datos de la parcela.';
@@ -156,23 +214,60 @@ class _SensorScreenState extends State<SensorScreen> {
     }
   }
 
-  Future<void> _loadLabAnalyses(String parcelId) async {
+  Future<void> _loadLabAnalyses(
+    Parcel parcel,
+    int parcelRevision,
+    int loadToken,
+  ) async {
+    if (!_isCurrentParcelLoad(
+      parcel.id,
+      parcelRevision,
+      loadToken,
+      requireParcel: true,
+    )) {
+      return;
+    }
     setState(() {
       _isLoadingLabAnalyses = true;
       _labAnalysesError = null;
     });
     try {
-      final analyses = await _labAnalysisRepository.listForParcel(parcelId);
-      if (!mounted || _parcel?.id != parcelId) return;
+      final analyses = await _labAnalysisRepository.listForParcel(parcel.id);
+      if (!_isCurrentParcelLoad(
+        parcel.id,
+        parcelRevision,
+        loadToken,
+        requireParcel: true,
+      )) {
+        return;
+      }
       setState(() {
         _labAnalyses = analyses;
         _isLoadingLabAnalyses = false;
       });
       if (analyses.isNotEmpty) {
-        await _requestLabRecommendation(_parcel!, analyses.first);
+        await _requestLabRecommendation(
+          parcel,
+          analyses.first,
+          parcelRevision: parcelRevision,
+          loadToken: loadToken,
+        );
+      } else {
+        await _loadLatestFertilizationPlan(
+          parcel.id,
+          parcelRevision,
+          loadToken,
+        );
       }
     } catch (_) {
-      if (!mounted || _parcel?.id != parcelId) return;
+      if (!_isCurrentParcelLoad(
+        parcel.id,
+        parcelRevision,
+        loadToken,
+        requireParcel: true,
+      )) {
+        return;
+      }
       setState(() {
         _isLoadingLabAnalyses = false;
         _labAnalysesError = 'No se pudieron cargar los análisis.';
@@ -180,10 +275,106 @@ class _SensorScreenState extends State<SensorScreen> {
     }
   }
 
+  Future<void> _loadLatestFertilizationPlan(
+    String parcelId,
+    int parcelRevision,
+    int loadToken,
+  ) async {
+    if (!_isCurrentParcelLoad(
+      parcelId,
+      parcelRevision,
+      loadToken,
+      requireParcel: true,
+    )) {
+      return;
+    }
+    setState(() {
+      _isLoadingFertilization = true;
+      _fertilizationError = null;
+    });
+    try {
+      final recommendation = await _fertilizationRepository.getLatestPlan(
+        parcelId,
+      );
+      if (!_isCurrentParcelLoad(
+        parcelId,
+        parcelRevision,
+        loadToken,
+        requireParcel: true,
+      )) {
+        return;
+      }
+      setState(() {
+        _fertilizationRecommendation = recommendation;
+        _isLoadingFertilization = false;
+      });
+    } on ApiAuthException catch (error) {
+      if (!_isCurrentParcelLoad(
+        parcelId,
+        parcelRevision,
+        loadToken,
+        requireParcel: true,
+      )) {
+        return;
+      }
+      setState(() {
+        _isLoadingFertilization = false;
+        _fertilizationError = error.message;
+      });
+    } on ApiException catch (error) {
+      if (!_isCurrentParcelLoad(
+        parcelId,
+        parcelRevision,
+        loadToken,
+        requireParcel: true,
+      )) {
+        return;
+      }
+      setState(() {
+        _isLoadingFertilization = false;
+        _fertilizationError = _fertilizationErrorMessage(error.message);
+      });
+    } catch (_) {
+      if (!_isCurrentParcelLoad(
+        parcelId,
+        parcelRevision,
+        loadToken,
+        requireParcel: true,
+      )) {
+        return;
+      }
+      setState(() {
+        _isLoadingFertilization = false;
+        _fertilizationError = 'No se pudo actualizar el plan guardado.';
+      });
+    }
+  }
+
   Future<void> _requestLabRecommendation(
     Parcel parcel,
-    LabAnalysis analysis,
-  ) async {
+    LabAnalysis analysis, {
+    int? parcelRevision,
+    int? loadToken,
+  }) async {
+    final requestRevision = parcelRevision ?? _loadedParcelRevision;
+    final requestToken = loadToken ?? _parcelLoadToken;
+    if (!_isCurrentParcelLoad(
+      parcel.id,
+      requestRevision,
+      requestToken,
+      requireParcel: true,
+    )) {
+      return;
+    }
+    final targetYield = _usesExpectedYield ? _targetYieldValue : null;
+    if (_usesExpectedYield && targetYield == null) {
+      setState(() {
+        _isLoadingFertilization = false;
+        _fertilizationRecommendation = null;
+        _targetYieldError = 'Ingresa un rendimiento mayor que cero.';
+      });
+      return;
+    }
     if ((analysis.phosphorusMethod?.trim().isEmpty ?? true) ||
         (analysis.potassiumMethod?.trim().isEmpty ?? true)) {
       setState(() {
@@ -201,65 +392,70 @@ class _SensorScreenState extends State<SensorScreen> {
     });
     try {
       final recommendation = await _fertilizationRepository
-          .createRecommendation(
+          .createFromLabAnalysis(
             parcelId: parcel.id,
-            targetYield: 20,
+            labAnalysisId: analysis.id,
+            targetYield: targetYield,
             yieldUnit: 'qq_gold_ha',
             fruitStage: _fruitStageFor(_stageName),
-            soilSource: 'laboratory',
-            nitrogenStatus: _labNutrientStatus(
-              SoilParameterId.nitrogenTotal,
-              analysis.nitrogen,
-            ),
-            phosphorusStatus: _labNutrientStatus(
-              SoilParameterId.phosphateP,
-              analysis.phosphorus,
-            ),
-            potassiumStatus: _labNutrientStatus(
-              SoilParameterId.potassium,
-              analysis.potassium,
-            ),
-            phosphorusMethod: analysis.phosphorusMethod,
-            potassiumMethod: analysis.potassiumMethod,
-            ph: analysis.ph,
-            electricalConductivity: analysis.ec,
           );
-      if (!mounted || _parcel?.id != parcel.id) return;
+      if (!_isCurrentParcelLoad(
+        parcel.id,
+        requestRevision,
+        requestToken,
+        requireParcel: true,
+      )) {
+        return;
+      }
       setState(() {
         _fertilizationRecommendation = recommendation;
         _isLoadingFertilization = false;
+        _fertilizationError =
+            recommendation.scenarios.isEmpty &&
+                recommendation.warnings.isNotEmpty
+            ? recommendation.warnings.join(' ')
+            : null;
       });
     } on ApiAuthException catch (error) {
-      if (!mounted) return;
+      if (!_isCurrentParcelLoad(
+        parcel.id,
+        requestRevision,
+        requestToken,
+        requireParcel: true,
+      )) {
+        return;
+      }
       setState(() {
         _isLoadingFertilization = false;
         _fertilizationError = error.message;
       });
     } on ApiException catch (error) {
-      if (!mounted) return;
+      if (!_isCurrentParcelLoad(
+        parcel.id,
+        requestRevision,
+        requestToken,
+        requireParcel: true,
+      )) {
+        return;
+      }
       setState(() {
         _isLoadingFertilization = false;
         _fertilizationError = _fertilizationErrorMessage(error.message);
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!_isCurrentParcelLoad(
+        parcel.id,
+        requestRevision,
+        requestToken,
+        requireParcel: true,
+      )) {
+        return;
+      }
       setState(() {
         _isLoadingFertilization = false;
         _fertilizationError =
             'No se pudo generar la sugerencia con el análisis de laboratorio.';
       });
-    }
-  }
-
-  String _labNutrientStatus(SoilParameterId parameter, double value) {
-    switch (classifySoilParameter(parameter, value)) {
-      case SoilLevel.deficient:
-        return 'deficient';
-      case SoilLevel.optimal:
-        return 'adequate';
-      case SoilLevel.high:
-      case SoilLevel.critical:
-        return 'high';
     }
   }
 
@@ -273,7 +469,29 @@ class _SensorScreenState extends State<SensorScreen> {
         ),
       ),
     );
-    if (mounted) await _loadLabAnalyses(parcel.id);
+    if (!mounted) return;
+    await _loadLabAnalyses(parcel, _loadedParcelRevision, _parcelLoadToken);
+  }
+
+  Future<void> _refresh() async {
+    final farmId = context.read<FarmProvider>().currentFarm?.id;
+    if (farmId == null) return;
+    final provider = context.read<ParcelProvider>();
+    await provider.loadForFarm(farmId, force: true);
+    final parcel = provider.currentParcel;
+    if (parcel != null) {
+      await _loadParcelData(parcel, provider.dataRevision);
+    }
+  }
+
+  void _openFertilizationPlan() {
+    final recommendation = _fertilizationRecommendation;
+    if (recommendation == null) return;
+    Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => FertilizationPlanScreen(recommendation: recommendation),
+      ),
+    );
   }
 
   int _ageInMonths(DateTime plantingDate) {
@@ -289,41 +507,53 @@ class _SensorScreenState extends State<SensorScreen> {
     final sensor = context.watch<SensorProvider>();
     final parcel = _parcel;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildInputDataSection(),
-          if (parcel != null) ...[
+    return RefreshIndicator(
+      onRefresh: _refresh,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.only(bottom: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildInputDataSection(),
+            if (parcel != null) ...[
+              const SizedBox(height: 16),
+              LabAnalysisCard(
+                analyses: _labAnalyses,
+                isLoading: _isLoadingLabAnalyses,
+                errorMessage: _labAnalysesError,
+                onManage: () => _openLabAnalyses(parcel),
+              ),
+            ],
             const SizedBox(height: 16),
-            LabAnalysisCard(
-              analyses: _labAnalyses,
-              isLoading: _isLoadingLabAnalyses,
-              errorMessage: _labAnalysesError,
-              onManage: () => _openLabAnalyses(parcel),
+            TelemetryCard(
+              status: sensor.status,
+              reading: sensor.lastReading,
+              diagnosis: sensor.savedDiagnosis,
+              saveStatus: sensor.saveStatus,
+              errorMessage: sensor.saveErrorMessage ?? sensor.errorMessage,
+              onAction: parcel == null
+                  ? null
+                  : () => _handleTelemetryAction(sensor, parcel),
+            ),
+            const SizedBox(height: 16),
+            ConventionalFertilizationCard(
+              scenario:
+                  _fertilizationRecommendation?.diagnosticSummaryScenario,
+              application:
+                  _fertilizationRecommendation?.nextYoungCropApplication,
+              isLoading: _isLoadingFertilization,
+              onViewDetails: _fertilizationRecommendation == null
+                  ? null
+                  : _openFertilizationPlan,
+              emptyMessage:
+                  _fertilizationError ??
+                  (_fertilizationRecommendation?.usesYoungCropSchedule == true
+                      ? 'No hay aplicaciones pendientes en el calendario de levante.'
+                      : 'Captura una muestra para generar las fuentes y dosis.'),
             ),
           ],
-          const SizedBox(height: 16),
-          TelemetryCard(
-            status: sensor.status,
-            reading: sensor.lastReading,
-            diagnosis: sensor.savedDiagnosis,
-            saveStatus: sensor.saveStatus,
-            errorMessage: sensor.saveErrorMessage ?? sensor.errorMessage,
-            onAction: parcel == null
-                ? null
-                : () => _handleTelemetryAction(sensor, parcel),
-          ),
-          const SizedBox(height: 16),
-          ConventionalFertilizationCard(
-            scenario: _fertilizationRecommendation?.conventionalScenario,
-            isLoading: _isLoadingFertilization,
-            emptyMessage:
-                _fertilizationError ??
-                'Captura una muestra para generar las fuentes y dosis.',
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -338,14 +568,25 @@ class _SensorScreenState extends State<SensorScreen> {
     }
 
     if (sensor.lastReading == null) return;
+    final parcelRevision = _loadedParcelRevision;
+    final loadToken = _parcelLoadToken;
+    final latestReadingProvider = context.read<LatestReadingProvider>();
     await sensor.saveCurrentReading(parcel.id);
-    if (sensor.saveStatus == SaveStatus.saved && mounted) {
-      context.read<LatestReadingProvider>().fetchLatest(parcel.id);
+    if (sensor.saveStatus == SaveStatus.saved &&
+        _isCurrentParcelLoad(
+          parcel.id,
+          parcelRevision,
+          loadToken,
+          requireParcel: true,
+        )) {
+      latestReadingProvider.fetchLatest(parcel.id);
       final diagnosis = sensor.savedDiagnosis;
+      final savedReading = sensor.savedReading;
       final reading = sensor.lastReading;
-      if (diagnosis != null && reading != null) {
+      if (diagnosis != null && savedReading != null && reading != null) {
         await _requestSensorRecommendation(
           parcel: parcel,
+          readingId: savedReading.id,
           reading: reading,
           diagnosis: diagnosis,
         );
@@ -355,9 +596,29 @@ class _SensorScreenState extends State<SensorScreen> {
 
   Future<void> _requestSensorRecommendation({
     required Parcel parcel,
+    required String readingId,
     required SensorReading reading,
     required SensorDiagnostic diagnosis,
   }) async {
+    final parcelRevision = _loadedParcelRevision;
+    final loadToken = _parcelLoadToken;
+    if (!_isCurrentParcelLoad(
+      parcel.id,
+      parcelRevision,
+      loadToken,
+      requireParcel: true,
+    )) {
+      return;
+    }
+    final targetYield = _usesExpectedYield ? _targetYieldValue : null;
+    if (_usesExpectedYield && targetYield == null) {
+      setState(() {
+        _isLoadingFertilization = false;
+        _fertilizationRecommendation = null;
+        _targetYieldError = 'Ingresa un rendimiento mayor que cero.';
+      });
+      return;
+    }
     setState(() {
       _isLoadingFertilization = true;
       _fertilizationRecommendation = null;
@@ -368,7 +629,8 @@ class _SensorScreenState extends State<SensorScreen> {
       final recommendation = await _fertilizationRepository
           .createRecommendation(
             parcelId: parcel.id,
-            targetYield: 20,
+            readingId: readingId,
+            targetYield: targetYield,
             yieldUnit: 'qq_gold_ha',
             fruitStage: _fruitStageFor(_stageName),
             soilSource: 'sensor',
@@ -384,25 +646,58 @@ class _SensorScreenState extends State<SensorScreen> {
             ph: reading.ph,
             electricalConductivity: reading.ec / 1000,
           );
-      if (!mounted) return;
+      if (!_isCurrentParcelLoad(
+        parcel.id,
+        parcelRevision,
+        loadToken,
+        requireParcel: true,
+      )) {
+        return;
+      }
       setState(() {
         _fertilizationRecommendation = recommendation;
         _isLoadingFertilization = false;
+        _fertilizationError =
+            recommendation.scenarios.isEmpty &&
+                recommendation.warnings.isNotEmpty
+            ? recommendation.warnings.join(' ')
+            : null;
       });
     } on ApiAuthException catch (error) {
-      if (!mounted) return;
+      if (!_isCurrentParcelLoad(
+        parcel.id,
+        parcelRevision,
+        loadToken,
+        requireParcel: true,
+      )) {
+        return;
+      }
       setState(() {
         _isLoadingFertilization = false;
         _fertilizationError = error.message;
       });
     } on ApiException catch (error) {
-      if (!mounted) return;
+      if (!_isCurrentParcelLoad(
+        parcel.id,
+        parcelRevision,
+        loadToken,
+        requireParcel: true,
+      )) {
+        return;
+      }
       setState(() {
         _isLoadingFertilization = false;
         _fertilizationError = _fertilizationErrorMessage(error.message);
       });
     } catch (error) {
-      if (!mounted) return;
+      if (!_isCurrentParcelLoad(
+        parcel.id,
+        parcelRevision,
+        loadToken,
+        requireParcel: true,
+      )) {
+        return;
+      }
       setState(() {
         _isLoadingFertilization = false;
         _fertilizationError =
@@ -433,6 +728,59 @@ class _SensorScreenState extends State<SensorScreen> {
           'este cultivo.';
     }
     return message;
+  }
+
+  double? get _targetYieldValue {
+    final value = double.tryParse(_targetYieldText.replaceAll(',', '.'));
+    return value != null && value > 0 ? value : null;
+  }
+
+  bool get _usesExpectedYield {
+    final parcel = _parcel;
+    return parcel != null && _ageInMonths(parcel.plantingDate) >= 25;
+  }
+
+  void _onTargetYieldChanged(String value) {
+    final parsed = double.tryParse(value.replaceAll(',', '.'));
+    final isValid = parsed != null && parsed > 0;
+    setState(() {
+      _targetYieldText = value;
+      _targetYieldError = isValid
+          ? null
+          : 'Ingresa un rendimiento mayor que cero.';
+      _fertilizationRecommendation = null;
+      _fertilizationError = isValid
+          ? 'Confirma el rendimiento para actualizar la recomendación.'
+          : null;
+    });
+  }
+
+  Future<void> _onTargetYieldSubmitted(String value) async {
+    _onTargetYieldChanged(value);
+    if (_targetYieldValue == null) return;
+    final parcel = _parcel;
+    if (parcel != null && _labAnalyses.isNotEmpty) {
+      await _requestLabRecommendation(parcel, _labAnalyses.first);
+    }
+  }
+
+  Future<void> _recalculateWithExpectedYield() async {
+    if (_targetYieldValue == null) {
+      setState(() {
+        _targetYieldError = 'Ingresa un rendimiento mayor que cero.';
+      });
+      return;
+    }
+    final parcel = _parcel;
+    if (parcel == null) return;
+    if (_labAnalyses.isNotEmpty) {
+      await _requestLabRecommendation(parcel, _labAnalyses.first);
+      return;
+    }
+    setState(() {
+      _fertilizationError =
+          'Guarda un análisis de laboratorio o captura una muestra del sensor.';
+    });
   }
 
   String _nutrientStatus(SoilDiagnosticLevel? level) {
@@ -495,6 +843,14 @@ class _SensorScreenState extends State<SensorScreen> {
             stageName: _stageName!,
             ageMonths: _ageInMonths(parcel.plantingDate),
             plantsPerHectare: parcel.plantsPerHectare,
+            targetYield: _targetYieldText,
+            targetYieldError: _targetYieldError,
+            onTargetYieldChanged: _onTargetYieldChanged,
+            onTargetYieldSubmitted: _onTargetYieldSubmitted,
+            onRecalculate: _targetYieldValue == null
+                ? null
+                : _recalculateWithExpectedYield,
+            isRecalculating: _isLoadingFertilization,
           ),
           if (_stageTemplates.isNotEmpty) ...[
             const SizedBox(height: 16),
@@ -525,10 +881,18 @@ class _SensorScreenState extends State<SensorScreen> {
               style: const TextStyle(height: 1.35),
             ),
           ),
-          if (_loadedFarmId != null)
+          if (_loadedParcelId != null)
             IconButton(
               tooltip: 'Reintentar',
-              onPressed: () => _loadParcelData(_loadedFarmId!),
+              onPressed: () {
+                final parcel = context.read<ParcelProvider>().currentParcel;
+                if (parcel != null) {
+                  _loadParcelData(
+                    parcel,
+                    context.read<ParcelProvider>().dataRevision,
+                  );
+                }
+              },
               icon: const Icon(Icons.refresh),
             ),
         ],

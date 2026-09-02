@@ -164,14 +164,14 @@ El motor original usa Urea, DAP y KCl como fuentes estándar. La especificación
 | Fertilizante | N% | P₂O₅% | K₂O% | S% | Ca% | Mg% | Caso de uso principal |
 |---|---|---|---|---|---|---|---|
 | MAP | 11 | 52 | — | — | — | — | Cobertura alta de P con menor N que DAP |
-| TSP | — | 46 | — | — | 14 | — | Solo P + Ca; sin N |
+| TSP | — | 46 | — | — | ≈12 | — | Solo P + Ca; sin N |
 | Sulfato de potasio (K₂SO₄) | — | — | 50 | 18 | — | — | K en suelos clorosensibles o con déficit de S |
-| Nitrato de potasio (KNO₃) | 13 | — | 44 | — | — | — | K + N sin fósforo |
+| Nitrato de potasio (KNO₃) | 13 | — | 46 | — | — | — | K + N sin fósforo |
 | Sulfato de amonio | 21 | — | — | 24 | — | — | N + S; acidificante útil en pH alto |
 | Nitrato de calcio | 15.5 | — | — | — | 19 | — | N + Ca; no acidifica |
-| Kieserita (MgSO₄·H₂O) | — | — | — | 22 | — | 18 | Déficit de Mg y S |
-| Yeso agrícola (CaSO₄·2H₂O) | — | — | — | 17 | 23 | — | Ca + S sin alterar pH |
-| Cal dolomítica | — | — | — | — | 21 | 12 | Encalado; eleva pH; aporta Ca + Mg |
+| Kieserita (MgSO₄·H₂O) | — | — | — | 20 | — | 15 | Déficit de Mg y S |
+| Yeso agrícola (CaSO₄·2H₂O) | — | — | — | 16 | 20 | — | Ca + S sin alterar pH |
+| Cal dolomítica | — | — | — | — | Variable | Variable | Encalado; usar composición y PRNT certificados |
 
 ### VII.B Orden de cálculo ampliado (cascada de 5 pasos)
 
@@ -235,27 +235,27 @@ Una parcela puede tener múltiples cohortes activas simultáneamente (varias fec
 
 | Parámetro | Unidad | Bajo | Adecuado | Alto | Confianza |
 |---|---|---|---|---|---|
-| pH | SU | <5.0 | 5.0–5.5 | >6.0 | Alta |
-| Conductividad eléctrica | dS/m | — | <1.0 | >1.1 (riesgo) | Media |
+| pH | SU | <5.0 | 5.0–5.5 | >5.5 (revisar especialmente >6.0) | Alta |
+| Conductividad eléctrica | dS/m | <0.10 (baja, no deficiencia nutricional) | 0.10–0.80 | >0.80 (vigilancia); ≥1.10 (riesgo) | Media |
 | Materia orgánica | % | <8 | 8–16 | >16 | Alta |
 | Nitrógeno total | mg/kg | <3,400 | 3,400–5,800 | >5,800 | Alta |
-| Fósforo disponible | mg/kg | <8 | 8–30 | >30 | Alta |
+| Fósforo disponible | mg/kg | <10 | 10–20 | >20 | Alta |
 | Calcio intercambiable | mg/kg | <301 | 301–601 | >601 | Alta |
 | Magnesio intercambiable | mg/kg | <73 | 73–109 | >109 | Alta |
 | Potasio intercambiable | mg/kg | <78 | 78–156 | >156 | Alta |
-| Azufre disponible | mg/kg | <5 | 5–15 | >15 | Media |
-| CIC | cmol(+)/kg | <10 | 15–30 | — | Media |
-| Saturación de bases | % | <50 | >60 | — | Media |
+| Azufre disponible | mg/kg | <6 | 6–12 | >12 | Media-baja |
+| CIC | cmol(+)/kg | <15 | 15–25 | >25 (generalmente favorable) | Alta |
+| Saturación de bases | % | <20 | >30 | Revisar >80 y desequilibrios | Alta |
 
 ### IX.B Micronutrientes (extracción DTPA / agua caliente)
 
 | Nutriente | Bajo | Adecuado | Alto | Método |
 |---|---|---|---|---|
-| Zinc (Zn) | <1.0 mg/kg | 1.5–3.0 mg/kg | >5.0 mg/kg | DTPA |
-| Hierro (Fe) | <5 mg/kg | >10 mg/kg | >50 mg/kg | DTPA |
-| Manganeso (Mn) | <1 mg/kg | 2–5 mg/kg | >10 mg/kg | DTPA |
-| Cobre (Cu) | <0.2 mg/kg | 0.5–1.5 mg/kg | >3.0 mg/kg | DTPA |
-| Boro (B) | <0.3 mg/kg | 0.5–1.0 mg/kg | >2.0 mg/kg | Agua caliente |
+| Zinc (Zn) | <1.5 mg/kg | 1.5–3.0 mg/kg | >3.0 mg/kg | DTPA u Olsen modificado |
+| Hierro (Fe) | <25 mg/kg | 25–50 mg/kg | >50 mg/kg | DTPA u Olsen modificado |
+| Manganeso (Mn) | <5 mg/kg | 5–20 mg/kg | >20 mg/kg | DTPA u Olsen modificado |
+| Cobre (Cu) | <1.0 mg/kg | 1.0–3.0 mg/kg | >3.0 mg/kg | DTPA u Olsen modificado |
+| Boro (B) | <0.2 mg/kg | 0.2–0.5 mg/kg | >0.5 mg/kg | Agua caliente |
 
 > [!IMPORTANT]
 > Los métodos de extracción **no son intercambiables**. Agrifos debe almacenar el método junto a cada resultado y mostrar el umbral correspondiente al método usado. Si el método es desconocido, etiquetar el resultado como "referencia orientativa".

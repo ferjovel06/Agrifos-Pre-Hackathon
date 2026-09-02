@@ -16,11 +16,37 @@ class FarmProvider extends ChangeNotifier {
 
   FarmStatus status = FarmStatus.loading;
   List<Farm> farms = [];
+  String? _selectedFarmId;
   String? errorMessage;
   int parcelRevision = 0;
 
-  /// The user's primary farm, once loaded. `null` until a farm exists.
-  Farm? get currentFarm => farms.isEmpty ? null : farms.first;
+  String? get selectedFarmId => _selectedFarmId;
+
+  /// The farm selected by the user, once farms have been loaded.
+  Farm? get currentFarm {
+    final selectedId = _selectedFarmId;
+    if (selectedId == null) return null;
+    for (final farm in farms) {
+      if (farm.id == selectedId) return farm;
+    }
+    return null;
+  }
+
+  /// Selects the farm used by every farm-scoped screen.
+  void selectFarm(String farmId) {
+    if (_selectedFarmId == farmId || !farms.any((farm) => farm.id == farmId)) {
+      return;
+    }
+    _selectedFarmId = farmId;
+    notifyListeners();
+  }
+
+  void replaceFarm(Farm updated) {
+    farms = farms
+        .map((farm) => farm.id == updated.id ? updated : farm)
+        .toList();
+    notifyListeners();
+  }
 
   void notifyParcelChanged() {
     parcelRevision++;
@@ -31,13 +57,10 @@ class FarmProvider extends ChangeNotifier {
   String? _loadedUserId;
 
   /// Fetches the current user's farms.
-  ///
-  /// Safe to call multiple times (e.g. from `initState`); pass
-  /// [force] to re-fetch even if farms were already loaded once, such
-  /// as after creating a new farm.
   Future<void> loadFarms({bool force = false, String? userId}) async {
     if (userId == null) {
       farms = [];
+      _selectedFarmId = null;
       _loadedUserId = null;
       _hasLoadedOnce = false;
       status = FarmStatus.loading;
@@ -59,6 +82,9 @@ class FarmProvider extends ChangeNotifier {
       // user-specific, so only the authenticated user's farms should decide
       // whether its empty state is shown.
       farms = result.where((farm) => farm.userId == userId).toList();
+      if (!farms.any((farm) => farm.id == _selectedFarmId)) {
+        _selectedFarmId = farms.firstOrNull?.id;
+      }
       _loadedUserId = userId;
       _hasLoadedOnce = true;
       status = farms.isEmpty ? FarmStatus.noFarm : FarmStatus.hasFarm;
@@ -97,6 +123,7 @@ class FarmProvider extends ChangeNotifier {
         longitude: longitude,
       );
       farms = [farm, ...farms];
+      _selectedFarmId = farm.id;
       _hasLoadedOnce = true;
       status = FarmStatus.hasFarm;
       notifyListeners();

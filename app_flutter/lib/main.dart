@@ -10,6 +10,7 @@ import 'data/api/auth_repository.dart';
 import 'presentation/auth/auth_provider.dart';
 import 'presentation/auth/auth_gate.dart';
 import 'presentation/farm/farm_provider.dart';
+import 'presentation/farm/parcel_provider.dart';
 import 'presentation/home/latest_reading_provider.dart';
 import 'presentation/home/weather_provider.dart';
 import 'presentation/sensor/sensor_provider.dart';
@@ -39,6 +40,7 @@ class AgrifosApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => LatestReadingProvider()),
         ChangeNotifierProvider(create: (_) => WeatherProvider()),
         ChangeNotifierProvider(create: (_) => FarmProvider()),
+        ChangeNotifierProvider(create: (_) => ParcelProvider()),
       ],
       child: MaterialApp(
         title: 'Agrifos',

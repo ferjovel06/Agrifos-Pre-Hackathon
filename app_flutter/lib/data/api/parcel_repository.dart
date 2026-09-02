@@ -85,6 +85,48 @@ class ParcelRepository {
     return Parcel.fromJson(response);
   }
 
+  Future<Parcel> updateParcel({
+    required String id,
+    required String cropId,
+    required String? varietyId,
+    required String name,
+    required double areaHectares,
+    required int plantsPerHectare,
+    required DateTime plantingDate,
+  }) async {
+    final response = await _client.patch('/parcels/$id', {
+      'crop_id': cropId,
+      'variety_id': varietyId,
+      'name': name,
+      'area_hectares': areaHectares,
+      'plants_per_hectare': plantsPerHectare,
+      'planting_date': _dateOnly(plantingDate),
+    });
+    return Parcel.fromJson(response);
+  }
+
+  Future<Parcel> updateParcelConfiguration({
+    required String id,
+    required String cropId,
+    required String varietyId,
+    required String stageTemplateId,
+    required String name,
+    required double areaHectares,
+    required int plantsPerHectare,
+    required DateTime plantingDate,
+  }) async {
+    final response = await _client.patch('/parcels/$id/configuration', {
+      'crop_id': cropId,
+      'variety_id': varietyId,
+      'phenological_stage_template_id': stageTemplateId,
+      'name': name,
+      'area_hectares': areaHectares,
+      'plants_per_hectare': plantsPerHectare,
+      'planting_date': _dateOnly(plantingDate),
+    });
+    return Parcel.fromJson(response);
+  }
+
   String _dateOnly(DateTime date) {
     final month = date.month.toString().padLeft(2, '0');
     final day = date.day.toString().padLeft(2, '0');

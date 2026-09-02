@@ -79,6 +79,7 @@ class AuditorPolicyTests(unittest.IsolatedAsyncioTestCase):
             farms.delete_farm,
             parcels.create_parcel,
             parcels.update_parcel,
+            parcels.update_parcel_configuration,
             parcels.delete_parcel,
             readings.create_reading,
             lab_analysis.create_lab_analysis,

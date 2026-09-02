@@ -94,7 +94,6 @@ erDiagram
     string lab
     timestamp recorded_at
   }
-
   %% Crop stages and requirements
   CROP ||--o{ PHENOLOGICAL_STAGE_TEMPLATE : defines
   PHENOLOGICAL_STAGE_TEMPLATE ||--o{ PARCEL_PHENOLOGICAL_STAGE : instantiates
@@ -113,7 +112,6 @@ erDiagram
     int stage_order
     int duration_days
   }
-
   PARCEL_PHENOLOGICAL_STAGE {
     uuid id PK
     uuid template_id FK
@@ -280,7 +278,6 @@ erDiagram
     json assumptions
     timestamp generated_at
   }
-
   FERTILIZATION_PLAN_ITEM {
     uuid id PK
     uuid plan_id FK
@@ -297,7 +294,6 @@ erDiagram
     json guaranteed_analysis_pct
     json nutrient_contributions_kg_ha
   }
-
   %% Farm events and finances
   FARM ||--o{ ALERT : triggers
   PARCEL o|--o{ ALERT : scopes

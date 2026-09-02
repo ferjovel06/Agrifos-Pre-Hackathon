@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from enum import Enum
 
 from pydantic import BaseModel, Field, model_validator
@@ -68,26 +69,26 @@ class SoilAssessmentInput(BaseModel):
         return self
 
 
-class FertilizationParametersInput(BaseModel):
-    maintenance_factor: float = Field(default=0.25, ge=0.10, le=0.35)
-    nitrogen_efficiency: float = Field(default=0.50, ge=0.40, le=0.60)
-    phosphorus_efficiency: float = Field(default=0.30, ge=0.20, le=0.40)
-    potassium_efficiency: float = Field(default=0.55, ge=0.40, le=0.70)
-    max_n_kg_ha_per_application: float = Field(default=40, ge=20, le=60)
-    kg_per_qq_gold: float = Field(default=46, ge=45.36, le=46)
-    cherry_to_green_factor: float = Field(default=5.0, ge=4.5, le=6.0)
-    hectares_per_manzana: float = Field(default=0.7042, gt=0)
-
-
 class FertilizationRecommendationRequest(BaseModel):
     parcel_id: uuid.UUID
-    target_yield: float = Field(gt=0)
+    target_yield: float | None = Field(default=None, gt=0)
     yield_unit: YieldUnit
     fruit_stage: FruitStage
-    soil: SoilAssessmentInput
-    parameters: FertilizationParametersInput = Field(
-        default_factory=FertilizationParametersInput
-    )
+    soil: SoilAssessmentInput | None = None
+    reading_id: uuid.UUID | None = None
+    lab_analysis_id: uuid.UUID | None = None
+
+    @model_validator(mode="after")
+    def require_exactly_one_soil_source(self):
+        if (self.soil is None) == (self.lab_analysis_id is None):
+            raise ValueError(
+                "Provide exactly one of soil or lab_analysis_id."
+            )
+        if self.reading_id is not None and (
+            self.soil is None or self.soil.source != SoilSource.SENSOR
+        ):
+            raise ValueError("reading_id can only accompany a sensor assessment.")
+        return self
 
 
 class NutrientRequirementRead(BaseModel):
@@ -101,7 +102,9 @@ class NutrientRequirementRead(BaseModel):
 
 
 class ProductDoseRead(BaseModel):
+    product_key: str
     product: str
+    guaranteed_analysis_pct: dict[str, float]
     kg_ha: float
     kg_manzana: float
     g_plant: float
@@ -111,6 +114,7 @@ class ProductDoseRead(BaseModel):
 class ApplicationRead(BaseModel):
     application_number: int
     moment: str
+    month_after_planting: int | None = None
     fraction: float
     products: list[ProductDoseRead]
 
@@ -124,6 +128,9 @@ class FertilizerScenarioRead(BaseModel):
 
 
 class FertilizationRecommendationRead(BaseModel):
+    plan_id: uuid.UUID | None = None
+    source_type: str | None = None
+    source_recorded_at: datetime | None = None
     parcel_id: uuid.UUID
     crop: str
     variety: str

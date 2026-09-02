@@ -23,6 +23,10 @@ class ParcelUpdate(BaseModel):
     planting_date: date | None = None
 
 
+class ParcelConfigurationUpdate(ParcelUpdate):
+    phenological_stage_template_id: uuid.UUID
+
+
 class ParcelRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

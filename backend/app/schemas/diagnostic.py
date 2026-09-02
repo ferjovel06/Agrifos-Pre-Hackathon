@@ -1,10 +1,16 @@
 import uuid
 from datetime import datetime
+from enum import Enum
 from typing import Literal
 
 from pydantic import BaseModel
 
-from app.services.soil_reference_ranges import SoilLevel
+
+class SoilLevel(str, Enum):
+    DEFICIENT = "deficient"
+    OPTIMAL = "optimal"
+    HIGH = "high"
+    CRITICAL = "critical"
 
 
 class DiagnosticRangeRead(BaseModel):

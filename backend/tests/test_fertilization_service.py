@@ -1,5 +1,6 @@
 import unittest
 import uuid
+from types import SimpleNamespace
 
 from pydantic import ValidationError
 
@@ -14,7 +15,12 @@ from app.schemas.fertilization import (
 from app.services.fertilization_service import (
     FertilizationInputError,
     calculate_fertilization_recommendation,
+    soil_assessment_from_lab_analysis,
 )
+from tests.agronomic_config_factory import CROP_ID, VARIETY_ID, make_engine_config
+
+
+CONFIG = make_engine_config()
 
 
 def make_request(**overrides):
@@ -38,9 +44,12 @@ def make_request(**overrides):
     return FertilizationRecommendationRequest(**values)
 
 
-def calculate(request, *, plant_age_months=32):
+def calculate(request, *, plant_age_months=40):
     return calculate_fertilization_recommendation(
         request,
+        config=CONFIG,
+        crop_id=CROP_ID,
+        variety_id=VARIETY_ID,
         crop_name="Café",
         variety_name="Caturra",
         plant_age_months=plant_age_months,
@@ -50,6 +59,136 @@ def calculate(request, *, plant_age_months=32):
 
 
 class FertilizationServiceTests(unittest.TestCase):
+    def test_suppresses_field_doses_during_initial_nursery(self):
+        request = make_request(target_yield=None)
+
+        for age_months in (2, 3):
+            with self.subTest(age_months=age_months):
+                result = calculate(request, plant_age_months=age_months)
+
+                self.assertEqual(
+                    result.recommendation_status,
+                    "initial_nursery_no_field_dose",
+                )
+                self.assertEqual(result.target_green_kg_ha, 0)
+                self.assertEqual(result.nutrient_requirements, [])
+                self.assertEqual(result.fertilizer_scenarios, [])
+                self.assertEqual(result.limiting_nutrients, [])
+                self.assertTrue(
+                    any("no se emiten dosis" in warning for warning in result.warnings)
+                )
+
+    def test_starts_fractionated_young_plan_after_initial_nursery(self):
+        result = calculate(make_request(target_yield=None), plant_age_months=4)
+
+        self.assertEqual(result.recommendation_status, "young_crop_reference")
+        self.assertTrue(result.fertilizer_scenarios)
+        self.assertEqual(
+            [
+                application.month_after_planting
+                for application in result.fertilizer_scenarios[0].application_schedule
+            ],
+            [2, 6, 10, 14, 18],
+        )
+        next_application = result.fertilizer_scenarios[0].application_schedule[1]
+        scenario = result.fertilizer_scenarios[0]
+        total_doses = {
+            product.product_key: product.kg_ha
+            for product in scenario.products
+        }
+        self.assertEqual(next_application.fraction, 0.20)
+        self.assertAlmostEqual(
+            sum(application.fraction for application in scenario.application_schedule),
+            1.0,
+        )
+        for application in scenario.application_schedule:
+            self.assertEqual(application.fraction, 0.20)
+            for product in application.products:
+                self.assertAlmostEqual(
+                    product.kg_ha,
+                    total_doses[product.product_key] * application.fraction,
+                    places=2,
+                )
+        for product_key, total_kg_ha in total_doses.items():
+            scheduled_total = sum(
+                next(
+                    product.kg_ha
+                    for product in application.products
+                    if product.product_key == product_key
+                )
+                for application in scenario.application_schedule
+            )
+            self.assertAlmostEqual(scheduled_total, total_kg_ha, places=2)
+        self.assertTrue(
+            any("vivero avanzado" in warning.lower() for warning in result.warnings)
+        )
+
+    def test_returns_young_plan_during_nursery_and_establishment(self):
+        request = make_request(target_yield=None)
+
+        nursery = calculate(request, plant_age_months=8)
+        establishment = calculate(request, plant_age_months=10)
+
+        self.assertEqual(nursery.recommendation_status, "young_crop_reference")
+        self.assertEqual(
+            establishment.recommendation_status,
+            "young_crop_reference",
+        )
+        self.assertTrue(nursery.fertilizer_scenarios)
+        self.assertTrue(establishment.fertilizer_scenarios)
+        self.assertTrue(any("vivero" in item.lower() for item in nursery.warnings))
+        self.assertTrue(
+            any("establecimiento" in item.lower() for item in establishment.warnings)
+        )
+
+    def test_uses_documented_yield_example_during_productive_transition(self):
+        transition = calculate(make_request(target_yield=20), plant_age_months=32)
+
+        self.assertEqual(transition.recommendation_status, "decision_support")
+        self.assertEqual(transition.target_green_kg_ha, 920)
+        self.assertTrue(transition.fertilizer_scenarios)
+        self.assertTrue(
+            any("edad y carga" in item.lower() for item in transition.assumptions)
+        )
+
+    def test_requires_target_yield_from_productive_transition(self):
+        with self.assertRaises(FertilizationInputError):
+            calculate(make_request(target_yield=None), plant_age_months=25)
+
+    def test_classifies_stored_lab_values_with_database_ranges(self):
+        assessment = soil_assessment_from_lab_analysis(
+            SimpleNamespace(
+                nitrogen=3000,
+                phosphorus=15,
+                potassium=200,
+                phosphorus_method="Bray II",
+                potassium_method="Ammonium acetate",
+                ph=5.2,
+                ec=0.5,
+            ),
+            CONFIG,
+        )
+
+        self.assertEqual(assessment.nitrogen, NutrientStatus.DEFICIENT)
+        self.assertEqual(assessment.phosphorus, NutrientStatus.ADEQUATE)
+        self.assertEqual(assessment.potassium, NutrientStatus.HIGH)
+
+    def test_request_requires_one_soil_source(self):
+        base = {
+            "parcel_id": uuid.uuid4(),
+            "target_yield": 20,
+            "yield_unit": YieldUnit.QQ_GOLD_HA,
+            "fruit_stage": FruitStage.EXPANSION,
+        }
+        with self.assertRaises(ValidationError):
+            FertilizationRecommendationRequest(**base)
+        with self.assertRaises(ValidationError):
+            FertilizationRecommendationRequest(
+                **base,
+                soil=make_request().soil,
+                lab_analysis_id=uuid.uuid4(),
+            )
+
     def test_uses_the_documented_levante_plan_before_25_months(self):
         request = make_request(
             soil=SoilAssessmentInput(
@@ -96,7 +235,7 @@ class FertilizationServiceTests(unittest.TestCase):
         }
         self.assertAlmostEqual(requirements["N"], 71.07, places=2)
         self.assertAlmostEqual(requirements["P2O5"], 20.20, places=2)
-        self.assertAlmostEqual(requirements["K2O"], 92.97, places=2)
+        self.assertAlmostEqual(requirements["K2O"], 78.67, places=2)
         self.assertEqual(result.limiting_nutrients, ["N", "P", "K"])
         self.assertTrue(
             all(
@@ -110,6 +249,31 @@ class FertilizationServiceTests(unittest.TestCase):
                 for application in result.fertilizer_scenarios[0].application_schedule
             ],
             [0.25, 0.30, 0.30, 0.15],
+        )
+
+    def test_uses_the_database_reference_product_selection_and_doses(self):
+        result = calculate(make_request())
+
+        scenarios = [
+            {
+                product.product: product.kg_ha for product in scenario.products
+            }
+            for scenario in result.fertilizer_scenarios
+        ]
+        self.assertEqual(
+            scenarios,
+            [
+                {"DAP": 43.91, "KCl": 131.12, "Urea": 137.32},
+                {
+                    "MAP": 38.85,
+                    "Sulfato de potasio": 157.34,
+                    "Urea": 145.21,
+                },
+            ],
+        )
+        self.assertEqual(
+            result.fertilizer_scenarios[0].products[0].guaranteed_analysis_pct,
+            {"N": 18.0, "P2O5": 46.0},
         )
 
     def test_converts_every_product_to_manzanas_and_grams_per_plant(self):

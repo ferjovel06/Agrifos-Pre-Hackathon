@@ -7,9 +7,39 @@ class FertilizationRepository {
 
   final ApiClient _client;
 
+  Future<FertilizationRecommendation?> getLatestPlan(String parcelId) async {
+    final response = await _client.get(
+      '/fertilization/plans/latest',
+      query: {'parcel_id': parcelId},
+    );
+    if (response == null) return null;
+    return FertilizationRecommendation.fromJson(
+      response as Map<String, dynamic>,
+    );
+  }
+
+  Future<FertilizationRecommendation> createFromLabAnalysis({
+    required String parcelId,
+    required String labAnalysisId,
+    double? targetYield,
+    required String yieldUnit,
+    required String fruitStage,
+  }) async {
+    final body = <String, dynamic>{
+      'parcel_id': parcelId,
+      'lab_analysis_id': labAnalysisId,
+      'target_yield': targetYield,
+      'yield_unit': yieldUnit,
+      'fruit_stage': fruitStage,
+    }..removeWhere((_, value) => value == null);
+    final response = await _client.post('/fertilization/recommendations', body);
+    return FertilizationRecommendation.fromJson(response);
+  }
+
   Future<FertilizationRecommendation> createRecommendation({
     required String parcelId,
-    required double targetYield,
+    String? readingId,
+    double? targetYield,
     required String yieldUnit,
     required String fruitStage,
     required String soilSource,
@@ -21,23 +51,25 @@ class FertilizationRepository {
     double? ph,
     double? electricalConductivity,
   }) async {
-    final response = await _client.post('/fertilization/recommendations', {
+    final soil = <String, dynamic>{
+      'source': soilSource,
+      'nitrogen': nitrogenStatus,
+      'phosphorus': phosphorusStatus,
+      'potassium': potassiumStatus,
+      'phosphorus_method': phosphorusMethod,
+      'potassium_method': potassiumMethod,
+      'ph': ph,
+      'ec_ds_m': electricalConductivity,
+    }..removeWhere((_, value) => value == null);
+    final body = <String, dynamic>{
       'parcel_id': parcelId,
+      'reading_id': readingId,
       'target_yield': targetYield,
       'yield_unit': yieldUnit,
       'fruit_stage': fruitStage,
-      'soil': {
-        'source': soilSource,
-        'nitrogen': nitrogenStatus,
-        'phosphorus': phosphorusStatus,
-        'potassium': potassiumStatus,
-        if (phosphorusMethod != null)
-          'phosphorus_method': phosphorusMethod,
-        if (potassiumMethod != null) 'potassium_method': potassiumMethod,
-        if (ph != null) 'ph': ph,
-        if (electricalConductivity != null) 'ec_ds_m': electricalConductivity,
-      },
-    });
+      'soil': soil,
+    }..removeWhere((_, value) => value == null);
+    final response = await _client.post('/fertilization/recommendations', body);
     return FertilizationRecommendation.fromJson(response);
   }
 }
