@@ -52,6 +52,10 @@ curl --request POST \
   --data '{"email":"<CORREO_DE_PRUEBA>","password":"<CONTRASEÑA_DE_PRUEBA>"}'
 ```
 
+```powershell
+(Invoke-RestMethod -Method Post -Uri 'https://nquoibsuhgbomlbsljvs.supabase.co/auth/v1/token?grant_type=password' -Headers @{apikey='<SUPABASE_PUBLISHABLE_KEY>'} -ContentType 'application/json' -Body (@{email='<CORREO_DE_PRUEBA>';password='<CONTRASEÑA_DE_PRUEBA>'} | ConvertTo-Json)).access_token
+```
+
 Copie el valor `access_token` de la respuesta. Los tokens expiran; si Swagger comienza a responder `401`, inicie sesión nuevamente y reemplace el token. Las credenciales, tokens y claves no deben publicarse en este repositorio ni incluirse en capturas.
 
 ## 3. Roles disponibles
