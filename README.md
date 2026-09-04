@@ -141,6 +141,8 @@ Las ecuaciones, factores, supuestos, ejemplos y referencias se documentan en [`d
 | `flutter_serial_communication` | Comunicación con el sensor NPK vía OTG/Serial |
 | `geolocator` / `geocoding` | Ubicación y geocodificación de fincas |
 | `google_fonts` | Tipografías de la interfaz |
+| `flutter_map` | Renderizado de mapas OpenStreetMap para ubicar fincas y parcelas |
+| `latlong2` | Tipos de coordenadas geográficas para `flutter_map` |
 
 ## Variables de entorno
 
@@ -152,7 +154,7 @@ ENV=development                 # development | staging | production
 APP_DEBUG=true
 
 # Database
-DATABASE_URL=postgresql+asyncpg://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres
+DATABASE_URL=postgresql+asyncpg://postgres:example_password@127.0.0.1:54321/postgres
 
 DB_POOL_SIZE=10
 DB_POOL_RECYCLE_SECONDS=300
