@@ -65,7 +65,7 @@ class _MainShellState extends State<MainShell> {
   static const _headerTitles = [
     'Panel General',
     'Diagnóstico Agronómico',
-    'Planificación',
+    'Planificación Climática',
     'Finanzas',
     'Configuración y Equipo',
   ];
@@ -73,7 +73,7 @@ class _MainShellState extends State<MainShell> {
   static const _headerSubtitles = [
     'Resumen operativo',
     'Análisis de suelo',
-    'Labores y ciclos',
+    'Calendario y alertas',
     'Ingresos y gastos',
     'Administración de cuenta',
   ];
