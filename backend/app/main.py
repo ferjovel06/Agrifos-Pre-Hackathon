@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Agrifos API",
-    version="1.0.0-beta.2",
+    version="1.0.0-beta.3",
     debug=settings.APP_DEBUG,
 )
 
