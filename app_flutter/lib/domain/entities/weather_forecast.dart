@@ -31,11 +31,17 @@ class CurrentWeather {
 }
 
 class DailyWeather {
+  final int? weatherCode;
+  final String? condition;
+  final double? temperatureMinC;
   final DateTime date;
   final double temperatureMaxC;
   final double precipitationMm;
 
   const DailyWeather({
+    this.weatherCode,
+    this.condition,
+    this.temperatureMinC,
     required this.date,
     required this.temperatureMaxC,
     required this.precipitationMm,
@@ -43,6 +49,9 @@ class DailyWeather {
 
   factory DailyWeather.fromJson(Map<String, dynamic> json) {
     return DailyWeather(
+      weatherCode: (json['weather_code'] as num?)?.toInt(),
+      condition: json['condition'] as String?,
+      temperatureMinC: (json['temperature_min_c'] as num?)?.toDouble(),
       date: DateTime.parse(json['date'] as String),
       temperatureMaxC: (json['temperature_max_c'] as num).toDouble(),
       precipitationMm: (json['precipitation_mm'] as num).toDouble(),
