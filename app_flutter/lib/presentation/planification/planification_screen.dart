@@ -238,13 +238,16 @@ class _PlanificationScreenState extends State<PlanificationScreen> {
                         ),
                         child: const Text('HOY'),
                       ),
-                      ChoiceChip(
-                        label: const Text('Mes'),
-                        showCheckmark: false,
-                        labelStyle: const TextStyle(fontSize: 12),
-                        visualDensity: VisualDensity.compact,
-                        selected: !_week,
-                        onSelected: (_) => setState(() => _week = false),
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                          label: const Text('Mes'),
+                          showCheckmark: false,
+                          labelStyle: const TextStyle(fontSize: 12),
+                          visualDensity: VisualDensity.compact,
+                          selected: !_week,
+                          onSelected: (_) => setState(() => _week = false),
+                        ),
                       ),
                       ChoiceChip(
                         label: const Text('Semana'),
@@ -253,11 +256,6 @@ class _PlanificationScreenState extends State<PlanificationScreen> {
                         visualDensity: VisualDensity.compact,
                         selected: _week,
                         onSelected: (_) => setState(() => _week = true),
-                      ),
-                      IconButton(
-                        tooltip: 'Actualizar clima y alertas',
-                        onPressed: _loading ? null : _load,
-                        icon: const Icon(Icons.refresh),
                       ),
                     ],
                   ),

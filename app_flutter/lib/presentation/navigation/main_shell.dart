@@ -95,6 +95,10 @@ class _MainShellState extends State<MainShell> {
                 subtitle: _headerSubtitles[_currentIndex],
                 accentColor: _currentIndex == 1
                     ? const Color(0xFF4D8DFF)
+                    : _currentIndex == 2
+                    ? const Color(0xFF8B5CF6)
+                    : _currentIndex == 3
+                    ? const Color(0xFFF59E0B)
                     : _currentIndex == 4
                     ? const Color(0xFF5A2D22)
                     : const Color(0xFF31543B),
