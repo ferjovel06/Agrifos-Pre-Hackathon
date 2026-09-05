@@ -1,0 +1,400 @@
+classDiagram
+    %% ═══════════════════════════════════════════════════════════════
+    %% MÓDULO DE USUARIOS Y AUTENTICACIÓN
+    %% ═══════════════════════════════════════════════════════════════
+    class User {
+        UUID id (PK)
+        str name
+        str email (UK)
+        str role: farmer|auditor|admin
+        date birth_date
+        str gender
+        str phone
+        str country
+        str department
+        str address
+        datetime created_at
+        datetime updated_at
+        ---
+        +List~Farm~ farms
+    }
+
+    %% ═══════════════════════════════════════════════════════════════
+    %% MÓDULO DE FINCAS Y PARCELAS
+    %% ═══════════════════════════════════════════════════════════════
+    class Farm {
+        UUID id (PK)
+        UUID user_id (FK)
+        str name
+        float area_hectares
+        float latitude
+        float longitude
+        datetime created_at
+        datetime updated_at
+        ---
+        +User owner
+        +List~Parcel~ parcels
+        +List~Alert~ alerts
+        +List~Expense~ expenses
+        +List~Income~ incomes
+        +List~Production~ productions
+    }
+
+    class Parcel {
+        UUID id (PK)
+        UUID farm_id (FK)
+        UUID crop_id (FK)
+        UUID variety_id (FK)
+        str name
+        float area_hectares
+        int plants_per_hectare
+        date planting_date
+        datetime created_at
+        datetime updated_at
+        ---
+        +Farm farm
+        +Crop crop
+        +Variety variety
+        +List~Reading~ readings
+        +List~LabAnalysis~ lab_analyses
+        +List~ParcelPhenologicalStage~ stage_instances
+        +List~FertilizationPlan~ fertilization_plans
+        +List~Alert~ alerts
+    }
+
+    %% ═══════════════════════════════════════════════════════════════
+    %% MÓDULO DE CULTIVOS Y VARIEDADES
+    %% ═══════════════════════════════════════════════════════════════
+    class Crop {
+        UUID id (PK)
+        str name (UK)
+        datetime created_at
+        datetime updated_at
+        ---
+        +List~Variety~ varieties
+        +List~Parcel~ parcels
+        +List~PhenologicalStageTemplate~ stage_templates
+        +List~ExtractionIndex~ extraction_indices
+    }
+
+    class Variety {
+        UUID id (PK)
+        UUID crop_id (FK)
+        str name
+        datetime created_at
+        datetime updated_at
+        ---
+        +Crop crop
+        +List~Parcel~ parcels
+        +List~VarietyFactor~ factors
+    }
+
+    %% ═══════════════════════════════════════════════════════════════
+    %% MÓDULO DE ANÁLISIS DE SUELO (SENSOR + LABORATORIO)
+    %% ═══════════════════════════════════════════════════════════════
+    class Reading {
+        UUID id (PK)
+        UUID parcel_id (FK)
+        float nitrogen (mg/kg)
+        float phosphorus (mg/kg)
+        float potassium (mg/kg)
+        float ec (dS/m)
+        float ph
+        float temperature (C)
+        float humidity (percent)
+        datetime recorded_at
+        ---
+        +Parcel parcel
+        +List~FertilizationPlan~ fertilization_plans
+    }
+
+    class LabAnalysis {
+        UUID id (PK)
+        UUID parcel_id (FK)
+        str sample_code (UK)
+        datetime sampled_at
+        float depth_start_cm
+        float depth_end_cm
+        float ph
+        str ph_method
+        float ec (dS/m)
+        str ec_method
+        float organic_matter_pct
+        float cic (meq/100g)
+        float clay_pct
+        float silt_pct
+        float sand_pct
+        float nitrogen (mg/kg)
+        float phosphorus (mg/kg)
+        str phosphorus_method
+        float potassium (mg/kg)
+        str potassium_method
+        float calcium (mg/kg)
+        float magnesium (mg/kg)
+        float sulfur (mg/kg)
+        str lab
+        datetime recorded_at
+        ---
+        +Parcel parcel
+        +List~FertilizationPlan~ fertilization_plans
+    }
+
+    %% ═══════════════════════════════════════════════════════════════
+    %% MÓDULO DE PLANES DE FERTILIZACIÓN
+    %% ═══════════════════════════════════════════════════════════════
+    class FertilizationPlan {
+        UUID id (PK)
+        UUID parcel_id (FK)
+        UUID reading_id (FK)
+        UUID lab_analysis_id (FK)
+        UUID reference_set_id (FK)
+        str method: sensor|laboratory|mixed
+        str input_fingerprint
+        dict recommendation_snapshot (JSON)
+        float target_green_kg_ha
+        int plant_age_months
+        str life_stage
+        str fruit_stage
+        str engine_version
+        str recommendation_status
+        List nutrient_requirements (JSON)
+        List limiting_nutrients (JSON)
+        List warnings (JSON)
+        List assumptions (JSON)
+        datetime generated_at
+        ---
+        +Parcel parcel
+        +Reading reading
+        +LabAnalysis lab_analysis
+        +List~FertilizationPlanItem~ items
+    }
+
+    class FertilizationPlanItem {
+        UUID id (PK)
+        UUID plan_id (FK)
+        UUID fertilizer_product_id (FK)
+        str scenario_name
+        int application_number
+        float fraction: 0 to 1
+        float kg_ha
+        float kg_manzana
+        float g_plant
+        ---
+        +FertilizationPlan plan
+        +FertilizerProduct product
+    }
+
+    %% ═══════════════════════════════════════════════════════════════
+    %% MÓDULO DE CONFIGURACIÓN AGRONÓMICA
+    %% ═══════════════════════════════════════════════════════════════
+    class AgronomicReferenceSet {
+        UUID id (PK)
+        UUID crop_id (FK)
+        str key: coffee-nicaragua
+        str version
+        str source
+        datetime created_at
+        ---
+        +List~SoilReferenceRange~ soil_ranges
+        +List~FertilizerProduct~ products
+        +List~AgronomicParameter~ parameters
+        +List~ExtractionIndex~ extraction_indices
+        +List~EfficiencyFactor~ efficiency_factors
+        +List~ApplicationScheduleRule~ schedules
+        +List~VarietyFactor~ variety_factors
+    }
+
+    class SoilReferenceRange {
+        UUID id (PK)
+        UUID reference_set_id (FK)
+        str parameter
+        str label_es
+        str unit: mg/kg|ppm|dS/m
+        str method: Bray II|Olsen
+        str confidence: low|medium|high
+        float deficient_below
+        float optimal_min
+        float optimal_max
+        float critical_above
+        bool high_is_generally_favorable
+        str notes
+    }
+
+    class FertilizerProduct {
+        UUID id (PK)
+        UUID reference_set_id (FK)
+        str key: urea|dap|kcl
+        str name
+        bool is_low_chloride
+        str nutrients: N:46 P2O5:0 K2O:0
+    }
+
+    class AgronomicParameter {
+        UUID id (PK)
+        UUID reference_set_id (FK)
+        str key
+        float value
+        str unit
+    }
+
+    class ExtractionIndex {
+        UUID id (PK)
+        UUID reference_set_id (FK)
+        UUID crop_id (FK)
+        str nutrient: N|P2O5|K2O
+        float index
+    }
+
+    class EfficiencyFactor {
+        UUID id (PK)
+        UUID reference_set_id (FK)
+        str soil_type
+        str nutrient: N|P2O5|K2O
+        float minimum
+        float maximum
+    }
+
+    class ApplicationScheduleRule {
+        UUID id (PK)
+        UUID reference_set_id (FK)
+        str life_stage: production|young_crop
+        int sequence
+        str moment: Floración|Cuaje
+        int month_after_planting
+        float fraction: 0 to 1
+    }
+
+    class VarietyFactor {
+        UUID id (PK)
+        UUID reference_set_id (FK)
+        UUID variety_id (FK)
+        str nutrient: N|P2O5|K2O
+        float factor: 1.0 standard
+    }
+
+    %% ═══════════════════════════════════════════════════════════════
+    %% MÓDULO DE FENOLOGÍA
+    %% ═══════════════════════════════════════════════════════════════
+    class PhenologicalStageTemplate {
+        UUID id (PK)
+        UUID crop_id (FK)
+        str name
+        ---
+        +List~PhenologicalStageDefinition~ stages
+        +List~ParcelPhenologicalStage~ instances
+    }
+
+    class PhenologicalStageDefinition {
+        UUID id (PK)
+        UUID template_id (FK)
+        int sequence
+        str name
+        int min_days_from_planting
+        int max_days_from_planting
+    }
+
+    class ParcelPhenologicalStage {
+        UUID id (PK)
+        UUID parcel_id (FK)
+        UUID stage_definition_id (FK)
+        date started_on
+        date ended_on
+    }
+
+    %% ═══════════════════════════════════════════════════════════════
+    %% MÓDULO DE ALERTAS
+    %% ═══════════════════════════════════════════════════════════════
+    class Alert {
+        UUID id (PK)
+        UUID farm_id (FK)
+        UUID parcel_id (FK)
+        str type: climate|phenology|soil_health
+        str title
+        str message
+        str severity: low|medium|high
+        date event_date
+        float risk_score
+        bool is_active
+        datetime created_at
+        ---
+        +Farm farm
+        +Parcel parcel
+    }
+
+    %% ═══════════════════════════════════════════════════════════════
+    %% MÓDULO DE FINANZAS
+    %% ═══════════════════════════════════════════════════════════════
+    class Expense {
+        UUID id (PK)
+        UUID farm_id (FK)
+        str category: fertilizer|labor|equipment
+        float amount
+        date expense_date
+        ---
+        +Farm farm
+    }
+
+    class Income {
+        UUID id (PK)
+        UUID farm_id (FK)
+        float amount
+        date income_date
+        ---
+        +Farm farm
+        +List~Production~ productions
+    }
+
+    class Production {
+        UUID id (PK)
+        UUID farm_id (FK)
+        UUID income_id (FK)
+        float quantity
+        str unit: qq|ton
+        date harvest_date
+        ---
+        +Farm farm
+        +Income income
+    }
+
+    %% ═══════════════════════════════════════════════════════════════
+    %% RELACIONES
+    %% ═══════════════════════════════════════════════════════════════
+    User "1" --> "*" Farm : owns
+    Farm "1" --> "*" Parcel : contains
+    Farm "1" --> "*" Alert : has
+    Farm "1" --> "*" Expense : records
+    Farm "1" --> "*" Income : receives
+    Farm "1" --> "*" Production : produces
+
+    Crop "1" --> "*" Variety : has_varieties
+    Crop "1" --> "*" Parcel : used_in
+    Crop "1" --> "*" AgronomicReferenceSet : referenced_by
+
+    Parcel "1" --> "*" Reading : has_readings
+    Parcel "1" --> "*" LabAnalysis : has_lab_analyses
+    Parcel "1" --> "*" FertilizationPlan : has_plans
+    Parcel "1" --> "*" ParcelPhenologicalStage : tracks_stages
+    Parcel "1" --> "*" Alert : triggers_alerts
+    Parcel "*" --> "1" Variety : uses_variety
+
+    Reading "1" --> "*" FertilizationPlan : sources_plan
+    LabAnalysis "1" --> "*" FertilizationPlan : sources_plan
+
+    FertilizationPlan "1" --> "*" FertilizationPlanItem : contains_items
+    FertilizationPlan "*" --> "1" AgronomicReferenceSet : uses_config
+
+    AgronomicReferenceSet "1" --> "*" SoilReferenceRange : defines
+    AgronomicReferenceSet "1" --> "*" FertilizerProduct : contains
+    AgronomicReferenceSet "1" --> "*" AgronomicParameter : stores
+    AgronomicReferenceSet "1" --> "*" ExtractionIndex : defines
+    AgronomicReferenceSet "1" --> "*" EfficiencyFactor : stores
+    AgronomicReferenceSet "1" --> "*" ApplicationScheduleRule : defines
+    AgronomicReferenceSet "1" --> "*" VarietyFactor : stores
+
+    FertilizerProduct "1" --> "*" FertilizationPlanItem : prescribes
+    Variety "1" --> "*" VarietyFactor : has_factors
+
+    PhenologicalStageTemplate "1" --> "*" PhenologicalStageDefinition : contains_definitions
+    PhenologicalStageTemplate "1" --> "*" ParcelPhenologicalStage : instantiated_in
+
+    Income "1" --> "*" Production : linked_to
