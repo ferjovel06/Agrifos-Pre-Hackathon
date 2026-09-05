@@ -10,9 +10,19 @@ erDiagram
     string name
     string email
     string role
+    date birth_date
+    string gender
+    string phone
+    string country
+    string department
+    string address
+    datetime created_at
+    datetime updated_at
   }
   FARM {
     uuid id PK
+    datetime created_at
+    datetime updated_at
     uuid user_id FK
     string name
     float area_hectares
@@ -21,20 +31,26 @@ erDiagram
   }
   PARCEL {
     uuid id PK
+    datetime created_at
+    datetime updated_at
     uuid farm_id FK
     uuid crop_id FK
     uuid variety_id FK
     string name
     float area_hectares
     int plants_per_hectare
-    date planting_date
+    Date planting_date
   }
   CROP {
     uuid id PK
+    datetime created_at
+    datetime updated_at
     string name
   }
   VARIETY {
     uuid id PK
+    datetime created_at
+    datetime updated_at
     uuid crop_id FK
     string name
   }

@@ -29,7 +29,7 @@ Sistema de asistencia agrícola compuesto por una plataforma digital interactiva
 
 **Flujo de datos**
 1. **Sensor NPK genérico (OTG):** dispositivo comercial de sonda multiparamétrica (NPK, CE, pH, temperatura, humedad) que se conecta al teléfono/tablet mediante cable OTG (USB Serial/CDC).
-2. **App (Flutter):** detecta el sensor conectado por OTG, permite capturar análisis de laboratorio y consume la API REST. Supabase Auth gestiona registro, confirmación de correo, sesiones, recuperación de contraseña y MFA TOTP. Las pestañas de planificación y finanzas conservan por ahora una interfaz de demostración.
+2. **App (Flutter):** detecta el sensor conectado por OTG, permite capturar análisis de laboratorio y consume la API REST. Supabase Auth gestiona registro, confirmación de correo, sesiones, recuperación de contraseña y MFA TOTP. Planificación incluye calendario mensual/semanal por finca, pronóstico de 7 días y alertas climáticas. Finanzas conserva una pantalla de demostración.
 3. **Backend (FastAPI):** valida los JWT de Supabase, aplica permisos por rol, persiste la información en PostgreSQL y expone los servicios de diagnóstico, fertilización, fenología y clima. Los modelos financieros existen, pero su router todavía no está publicado por la API.
 4. **Servicio externo de clima:** proveedor meteorológico de terceros consultado por el backend para generar alertas predictivas (lluvias, canículas, olas de calor).
 5. **Base de datos (PostgreSQL):** modelo relacional de 27 entidades, incluidas referencias agronómicas versionadas, etapas fenológicas normalizadas y recomendaciones de fertilización persistidas — ver [Modelo de datos](#modelo-de-datos) para el detalle completo.
@@ -61,7 +61,7 @@ El diagrama ER completo del modelo (27 entidades, 41 relaciones) está versionad
 
 ### 1. Calculadora de Insumos (Motor de Recomendación Nutricional)
 
-Traduce los datos brutos del suelo en instrucciones claras de compra y aplicación de fertilizantes, adaptándose al nivel tecnológico del agricultor mediante dos vías. La primera versión del motor cubre los cultivos de **café** (variedades Caturra, Borbón y Catuaí) y **maíz** (tipos Híbrido, Mejorada y Criollo), y calcula el balance de masa de los macronutrientes N, P y K por etapa fenológica.
+Traduce los datos del suelo en recomendaciones de fertilización mediante dos vías. El motor implementado está orientado a **café**`, y calcula el balance de N, P y K según el contexto fenológico.
 
 **Vía A — Basada en Sensores Genéricos 7 en 1 (Monitoreo Rápido y Dinámico)**
 - **Parámetros utilizados:** Nitrógeno (N), Fósforo (P), Potasio (K), pH, Humedad, Temperatura y Conductividad Eléctrica (CE), leídos vía OTG.
@@ -71,21 +71,22 @@ Traduce los datos brutos del suelo en instrucciones claras de compra y aplicaci�
 
 ### 2. Inteligencia Climática y Alertas Predictivas
 
-Pasa del simple pronóstico del clima a recomendaciones accionables que protegen la inversión del agricultor, mediante una **matriz de riesgo probabilístico** que evalúa la precipitación proyectada a 24-48 horas frente a la tasa de infiltración del suelo.
+**Implementado:** pronóstico por finca y evaluación de alertas de lluvia y calor. La pestaña **Planificación Climática** incluye:
 
-- **Prevención de lavado de nutrientes:** si el sistema detecta que el usuario planea aplicar fertilizante y el riesgo de escorrentía en las siguientes 48 horas es alto, envía una alerta automática para evitar perdidas de insumos.
-- **Prevención de estrés térmico/hídrico:** avisos adelantados sobre canículas u olas de calor, sugiriendo riegos de auxilio o la suspensión temporal de aplicaciones de agroquímicos que podrían quemar la planta con sol intenso.
+- Calendario mensual/semanal, pronóstico de 7 días con filas de día, indicadores de lluvia y alertas, marcadores por fecha, detalle del día y alertas activas.
+- El riesgo de fertilización suma la lluvia de los primeros dos días del pronóstico y recomienda posponer cuando el índice supera 0.6. Las alertas de calor empiezan en 37 °C y son críticas desde 42 °C.
+
+**Pendiente:** eventos programados, riego y muestreo en calendario, matriz de infiltración y alertas de sequía/canícula.
 
 ### 3. Calendario Fenológico Automatizado
 
-Línea de tiempo inteligente que se adapta al ciclo biológico del cultivo para que el agricultor nunca se salte una etapa crítica.
+**Implementado:** catálogo de etapas por cultivo y registros por parcela con fecha estimada, fecha real y momento de selección. La app permite seleccionar la etapa actual al registrar o editar una parcela; la API permite crear, consultar, editar y eliminar registros fenológicos.
 
-- **Funcionamiento:** el usuario ingresa el tipo de cultivo (ej. maíz, frijol, café) y la fecha de siembra o poda.
-- **Automatización:** el sistema proyecta las fases (germinación, desarrollo vegetativo, floración, llenado de grano/fruto) y se sincroniza con la Calculadora de Insumos, enviando alertas en momentos clave (ej. inicio de floración y su alta demanda de fósforo).
+**Pendiente:** mostrar y gestionar esos hitos en Planificación, proyectar automáticamente el ciclo completo y emitir avisos fenológicos. El calendario actual presenta clima y alertas climáticas.
 
 ### 4. Gestor de Operaciones y Finanzas de la Finca
 
-Módulo administrativo integral para manejar la parcela como una empresa, con control total del negocio.
+El alcance previsto es:
 
 - **Control de egresos:** registro de gastos operativos: semillas, fertilizantes, pago de peones (por día o por labor), alquiler de maquinaria y costos de transporte.
 - **Registro de ingresos y producción:** documentación del rendimiento de la cosecha (quintales o toneladas) y el precio de venta en el mercado al momento de la transacción.
@@ -109,7 +110,7 @@ El motor agronómico combina los datos del suelo con el cultivo, la variedad, la
 - **Entradas:** lecturas del sensor 7-en-1 o resultados de laboratorio, datos de la parcela y contexto fenológico.
 - **Proceso:** normalización de unidades, evaluación del aporte del suelo, estimación del déficit y ajuste por eficiencia agronómica.
 - **Salidas:** diagnóstico por parámetro y recomendaciones de fertilización expresadas en unidades aplicables en campo.
-- **Alcance inicial:** café y maíz, con advertencias sobre calibración, métodos de laboratorio y límites de interpretación.
+- **Alcance implementado:** café, con advertencias sobre calibración, métodos de laboratorio y límites de interpretación.
 
 Las ecuaciones, factores, supuestos, ejemplos y referencias se documentan en [`docs/agrifos_engine_documentation.md`](docs/agrifos_engine_documentation.md). El detalle fenológico y los rangos de laboratorio están en [`docs/coffee_phenology_and_fertilization_engine.pdf`](docs/coffee_phenology_and_fertilization_engine.pdf) y [`docs/coffee_soil_laboratory_parameters.pdf`](docs/coffee_soil_laboratory_parameters.pdf).
 
@@ -205,14 +206,16 @@ agrifos/
 │   │   │   ├── lab_analysis.py     # Vía B: ingreso de análisis de suelo
 │   │   │   ├── diagnostic.py
 │   │   │   ├── fertilization.py
-│   │   │   ├── weather.py                    # Alertas climáticas predictivas
+│   │   │   ├── weather.py                    # Pronóstico por finca
+│   │   │   ├── alerts.py                     # Evaluación y consulta de alertas
 │   │   │   ├── phenology.py                # Calendario fenológico automatizado
 │   │   │   └── finances.py                 # Borrador; router aún no publicado
 │   │   ├── services/
 │   │   │   ├── diagnostic_service.py      # Cruce lectura/análisis vs. requerimientos del cultivo
 │   │   │   ├── fertilization_service.py    # Balance de masa N-P-K, calibración de sensores,
 │   │   │   │                              # cascada química (DAP→Urea→KCl) y dosis orgánica
-│   │   │   ├── weather_service.py            # Consumo del proveedor externo y generación de alertas
+│   │   │   ├── weather_service.py            # Obtención y validación del pronóstico
+│   │   │   ├── climate_alert_service.py      # Reglas de riesgo por lluvia y calor
 │   │   │   ├── phenology_service.py        # Proyección de fases fenológicas por cultivo
 │   │   ├── integrations/
 │   │   │   └── weather_provider.py         # Cliente HTTP del proveedor meteorológico externo
@@ -242,7 +245,7 @@ agrifos/
 │   │   │   ├── farm/               # Registro de fincas y parcelas
 │   │   │   ├── sensor/             # Tablero NPK y diagnóstico
 │   │   │   ├── lab_analysis/       # Captura de análisis de suelo (Vía B)
-│   │   │   ├── planification/      # Interfaz de planificación
+│   │   │   ├── planification/      # Calendario climático, pronóstico y alertas
 │   │   │   ├── finance/            # Interfaz financiera
 │   │   │   └── profile/            # Perfil, contraseña y MFA
 │   │   └── shared/                 # Widgets reutilizables
