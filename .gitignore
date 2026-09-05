@@ -1,5 +1,3 @@
-app_flutter/build_stale_*/
-
 # Backend
 backend/.venv/
 backend/__pycache__/
@@ -9,6 +7,7 @@ backend/*.pyc
 backend/.env
 backend/.pytest_cache/
 backend/.uv-*/
+.uv-*/
 
 # Frontend
 app_flutter/build/
