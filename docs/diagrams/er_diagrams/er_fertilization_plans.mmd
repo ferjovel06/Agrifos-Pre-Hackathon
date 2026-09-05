@@ -48,21 +48,33 @@ erDiagram
     uuid lab_analysis_id FK
     uuid reference_set_id FK
     string method
+    string input_fingerprint
+    json recommendation_snapshot
+    float target_green_kg_ha
+    int plant_age_months
+    string life_stage
+    string fruit_stage
     string engine_version
     string recommendation_status
     json nutrient_requirements
+    json limiting_nutrients
     json warnings
-    timestamp generated_at
+    json assumptions
+    datetime generated_at
   }
   FERTILIZATION_PLAN_ITEM {
     uuid id PK
     uuid plan_id FK
     uuid fertilizer_product_id FK
     string scenario_name
+    string selection_method
+    boolean scenario_is_valid
     int application_number
     string moment
+    float fraction
     float kg_ha
     float kg_manzana
     float g_plant
+    json guaranteed_analysis_pct
     json nutrient_contributions_kg_ha
   }

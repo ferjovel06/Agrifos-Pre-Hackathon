@@ -17,10 +17,20 @@ erDiagram
     string name
     string email
     string role
+    date birth_date
+    string gender
+    string phone
+    string country
+    string department
+    string address
+    datetime created_at
+    datetime updated_at
   }
 
   FARM {
     uuid id PK
+    datetime created_at
+    datetime updated_at
     uuid user_id FK
     string name
     float area_hectares
@@ -30,22 +40,28 @@ erDiagram
 
   PARCEL {
     uuid id PK
+    datetime created_at
+    datetime updated_at
     uuid farm_id FK
     uuid crop_id FK
     uuid variety_id FK
     string name
     float area_hectares
     int plants_per_hectare
-    date planting_date
+    Date planting_date
   }
 
   CROP {
     uuid id PK
+    datetime created_at
+    datetime updated_at
     string name
   }
 
   VARIETY {
     uuid id PK
+    datetime created_at
+    datetime updated_at
     uuid crop_id FK
     string name
   }
@@ -64,14 +80,14 @@ erDiagram
     float ph
     float temperature
     float humidity
-    timestamp recorded_at
+    datetime recorded_at
   }
 
   LAB_ANALYSIS {
     uuid id PK
     uuid parcel_id FK
     string sample_code
-    timestamp sampled_at
+    datetime sampled_at
     float depth_start_cm
     float depth_end_cm
     float ph
@@ -92,7 +108,7 @@ erDiagram
     float magnesium
     float sulfur
     string lab
-    timestamp recorded_at
+    datetime recorded_at
   }
   %% Crop stages and requirements
   CROP ||--o{ PHENOLOGICAL_STAGE_TEMPLATE : defines
@@ -114,8 +130,8 @@ erDiagram
   }
   PARCEL_PHENOLOGICAL_STAGE {
     uuid id PK
-    uuid template_id FK
     uuid parcel_id FK
+    uuid template_id FK
     date estimated_date
     date actual_date
     datetime selected_at
@@ -176,9 +192,9 @@ erDiagram
     string key
     string version
     string source
-    text description
+    string description
     boolean is_active
-    timestamp created_at
+    datetime created_at
   }
 
   SOIL_TYPE {
@@ -194,14 +210,14 @@ erDiagram
     string parameter
     string label_es
     string unit
-    text method
+    string method
     string confidence
     float deficient_below
     float optimal_min
     float optimal_max
     float critical_above
     boolean high_is_generally_favorable
-    text notes
+    string notes
   }
 
   EFFICIENCY_FACTOR {
@@ -220,7 +236,7 @@ erDiagram
     string key
     float value
     string unit
-    text notes
+    string notes
   }
 
   %% Fertilization
@@ -266,6 +282,8 @@ erDiagram
     uuid lab_analysis_id FK
     uuid reference_set_id FK
     string method
+    string input_fingerprint
+    json recommendation_snapshot
     float target_green_kg_ha
     int plant_age_months
     string life_stage
@@ -276,7 +294,7 @@ erDiagram
     json limiting_nutrients
     json warnings
     json assumptions
-    timestamp generated_at
+    datetime generated_at
   }
   FERTILIZATION_PLAN_ITEM {
     uuid id PK
@@ -313,7 +331,7 @@ erDiagram
     date event_date
     float risk_score
     boolean is_active
-    timestamp created_at
+    datetime created_at
   }
 
   EXPENSE {

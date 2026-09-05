@@ -25,9 +25,13 @@ erDiagram
     uuid id PK
     uuid parcel_id FK
     string sample_code
-    timestamp sampled_at
+    datetime sampled_at
+    float depth_start_cm
+    float depth_end_cm
     float ph
+    string ph_method
     float ec
+    string ec_method
     float organic_matter_pct
     float cic
     float clay_pct
@@ -35,10 +39,12 @@ erDiagram
     float sand_pct
     float nitrogen
     float phosphorus
+    string phosphorus_method
     float potassium
+    string potassium_method
     float calcium
     float magnesium
     float sulfur
     string lab
-    timestamp recorded_at
+    datetime recorded_at
   }
