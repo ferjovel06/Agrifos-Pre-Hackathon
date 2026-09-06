@@ -20,3 +20,5 @@ app_flutter/.env
 
 # Environment variables
 .env
+
+tmp/**
