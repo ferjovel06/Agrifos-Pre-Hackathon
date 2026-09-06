@@ -97,7 +97,7 @@ class _Hero extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Text(
-                  'SLOGAN',
+                  'Modernizando el agro Nicaragüense',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.6),
                     fontSize: 9,
