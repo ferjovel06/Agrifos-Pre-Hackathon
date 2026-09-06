@@ -80,7 +80,11 @@ Los tokens expiran. Si Swagger responde `401`, inicie sesión nuevamente y susti
 | `auditor` | Acceso global de solo lectura. Puede consultar información de distintos agricultores, pero las operaciones de escritura responden `403`. |
 | `admin` | Acceso global de lectura y escritura. También puede administrar usuarios, cultivos, variedades y plantillas fenológicas. |
 
-Una cuenta recién registrada recibe el rol `farmer`. Los roles `auditor` y `admin` deben asignarse previamente por un administrador; el usuario no puede elevar su propio rol desde la aplicación.
+Para evaluar el flujo completo, se recomienda crear una cuenta nueva desde la aplicación. Toda cuenta recién registrada recibe automáticamente el rol `farmer`, por lo que el evaluador podrá registrar sus propias fincas y parcelas, completar el resto del recorrido y probar en la API las operaciones `POST`, `PUT`, `PATCH` y `DELETE` con sus propios datos.
+
+La cuenta `auditor` proporcionada está destinada a comprobar el acceso global de solo lectura. Permite consultar datos mediante operaciones `GET`, pero no crear ni modificar registros: las solicitudes `POST`, `PUT`, `PATCH` y `DELETE` deben responder HTTP `403`.
+
+Los roles `auditor` y `admin` deben asignarse previamente por un administrador; el usuario no puede elevar su propio rol desde la aplicación.
 
 Para confirmar la identidad y el rol de la cuenta autorizada, ejecute:
 
@@ -114,7 +118,7 @@ Para comprobar los permisos, una cuenta `auditor` puede repetir consultas `GET`;
 2. Seleccione la prerelease más reciente y descargue el archivo `.apk` incluido en **Assets**.
 3. En el dispositivo Android, permita temporalmente la instalación desde la aplicación usada para descargar el archivo.
 4. Instale el APK y abra Agrifos.
-5. Inicie sesión con la cuenta de evaluación proporcionada.
+5. Cree una cuenta nueva para probar el flujo completo como `farmer`, o inicie sesión con la cuenta `auditor` proporcionada si solo desea comprobar las consultas de lectura.
 
 Recorrido móvil sugerido:
 
