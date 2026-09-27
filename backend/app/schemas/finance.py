@@ -8,9 +8,22 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 Amount = Decimal
 
 
+def _normalize_category(value: str) -> str:
+    normalized = " ".join(value.split())
+    if not normalized:
+        raise ValueError("category cannot be blank.")
+    return normalized
+
+
 class IncomeValues(BaseModel):
+    category: str = Field(min_length=1, max_length=50)
     amount: Amount = Field(gt=0, max_digits=12, decimal_places=2)
     income_date: date
+
+    @field_validator("category")
+    @classmethod
+    def normalize_category(cls, value: str) -> str:
+        return _normalize_category(value)
 
 
 class IncomeCreate(IncomeValues):
@@ -18,6 +31,7 @@ class IncomeCreate(IncomeValues):
 
 
 class IncomeUpdate(BaseModel):
+    category: str | None = Field(default=None, min_length=1, max_length=50)
     amount: Amount | None = Field(
         default=None,
         gt=0,
@@ -30,6 +44,11 @@ class IncomeUpdate(BaseModel):
     @classmethod
     def require_non_null_update(cls, value):
         return _validate_update(value)
+
+    @field_validator("category")
+    @classmethod
+    def normalize_category(cls, value: str | None) -> str | None:
+        return None if value is None else _normalize_category(value)
 
 
 class IncomeRead(IncomeValues):
@@ -47,10 +66,7 @@ class ExpenseValues(BaseModel):
     @field_validator("category")
     @classmethod
     def normalize_category(cls, value: str) -> str:
-        normalized = " ".join(value.split())
-        if not normalized:
-            raise ValueError("category cannot be blank.")
-        return normalized
+        return _normalize_category(value)
 
 
 class ExpenseCreate(ExpenseValues):
@@ -75,12 +91,7 @@ class ExpenseUpdate(BaseModel):
     @field_validator("category")
     @classmethod
     def normalize_category(cls, value: str | None) -> str | None:
-        if value is None:
-            return value
-        normalized = " ".join(value.split())
-        if not normalized:
-            raise ValueError("category cannot be blank.")
-        return normalized
+        return None if value is None else _normalize_category(value)
 
 
 class ExpenseRead(ExpenseValues):

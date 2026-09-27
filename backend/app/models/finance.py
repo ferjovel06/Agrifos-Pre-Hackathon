@@ -24,6 +24,7 @@ class Income(Base, UUIDPKMixin):
     __tablename__ = "incomes"
 
     farm_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("farms.id"), nullable=False)
+    category: Mapped[str] = mapped_column(String(50))
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
     income_date: Mapped[date] = mapped_column(Date)
 

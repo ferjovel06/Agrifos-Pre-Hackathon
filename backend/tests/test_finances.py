@@ -23,6 +23,7 @@ class FinanceSchemaTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             IncomeCreate(
                 farm_id=uuid.uuid4(),
+                category="Venta de café",
                 amount=Decimal("0"),
                 income_date=date.today(),
             )
@@ -36,6 +37,16 @@ class FinanceSchemaTests(unittest.TestCase):
         )
 
         self.assertEqual(payload.category, "Mano de obra")
+
+    def test_income_category_is_normalized(self):
+        payload = IncomeCreate(
+            farm_id=uuid.uuid4(),
+            category="  Venta   de café  ",
+            amount=Decimal("1250.00"),
+            income_date=date.today(),
+        )
+
+        self.assertEqual(payload.category, "Venta de café")
 
     def test_blank_expense_category_is_rejected_on_update(self):
         with self.assertRaises(ValidationError):
@@ -57,6 +68,7 @@ class FinanceRouterTests(unittest.IsolatedAsyncioTestCase):
     async def test_create_income_for_owned_farm(self):
         payload = IncomeCreate(
             farm_id=self.farm.id,
+            category="Venta de café",
             amount=Decimal("850.25"),
             income_date=date(2026, 9, 27),
         )
@@ -82,6 +94,7 @@ class FinanceRouterTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(result, Income)
         self.assertEqual(result.farm_id, self.farm.id)
         self.assertEqual(result.amount, Decimal("850.25"))
+        self.assertEqual(result.category, "Venta de café")
 
     async def test_foreign_farm_is_rejected(self):
         foreign_farm = SimpleNamespace(id=uuid.uuid4(), user_id=uuid.uuid4())
