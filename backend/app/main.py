@@ -15,6 +15,7 @@ from app.routers import (
     crops,
     diagnostic,
     farms,
+    finances,
     fertilization,
     lab_analysis,
     parcels,
@@ -46,6 +47,7 @@ app.include_router(alerts.router)
 app.include_router(users.router)
 app.include_router(readings.router)
 app.include_router(farms.router)
+app.include_router(finances.router)
 app.include_router(parcels.router)
 app.include_router(crops.router)
 app.include_router(varieties.router)
