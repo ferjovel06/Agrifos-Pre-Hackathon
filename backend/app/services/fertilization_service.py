@@ -7,7 +7,6 @@ from app.schemas.fertilization import (
     FertilizationRecommendationRead,
     FertilizationRecommendationRequest,
     FertilizerScenarioRead,
-    FruitStage,
     LifeStage,
     NutrientRequirementRead,
     NutrientStatus,
