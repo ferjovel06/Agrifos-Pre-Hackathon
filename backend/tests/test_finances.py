@@ -9,7 +9,7 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 
 from app.models import Expense, Income
-from app.repositories.finance import FinanceDashboardTotals
+from app.repositories.finance import FinanceDashboardTotals, MonthlyFinanceTotals
 from app.routers import finances as router
 from app.schemas.finance import (
     ExpenseCreate,
@@ -116,13 +116,14 @@ class FinanceRouterTests(unittest.IsolatedAsyncioTestCase):
             result = await router.get_dashboard(
                 farm_id=self.farm.id,
                 as_of=date(2026, 9, 28),
+                months=6,
                 current_user=self.user,
                 db=self.db,
             )
 
         self.assertIs(result, expected)
         dashboard_mock.assert_awaited_once_with(
-            self.db, self.farm.id, date(2026, 9, 28)
+            self.db, self.farm.id, date(2026, 9, 28), 6
         )
 
     async def test_foreign_farm_is_rejected(self):
@@ -240,11 +241,33 @@ class FinanceDashboardServiceTests(unittest.IsolatedAsyncioTestCase):
             year_to_date_income=Decimal("7400.00"),
         )
 
-        with patch.object(
-            finance_service.finance_repo,
-            "get_dashboard_totals",
-            AsyncMock(return_value=totals),
-        ) as totals_mock:
+        monthly_totals = [
+            MonthlyFinanceTotals(
+                year=2025,
+                month=12,
+                income=Decimal("1200.00"),
+                expenses=Decimal("700.00"),
+            ),
+            MonthlyFinanceTotals(
+                year=2026,
+                month=3,
+                income=Decimal("1000.00"),
+                expenses=Decimal("600.00"),
+            ),
+        ]
+
+        with (
+            patch.object(
+                finance_service.finance_repo,
+                "get_dashboard_totals",
+                AsyncMock(return_value=totals),
+            ) as totals_mock,
+            patch.object(
+                finance_service.finance_repo,
+                "get_monthly_totals",
+                AsyncMock(return_value=monthly_totals),
+            ) as monthly_mock,
+        ):
             result = await finance_service.get_dashboard(
                 db, farm_id, date(2026, 3, 15)
             )
@@ -257,6 +280,12 @@ class FinanceDashboardServiceTests(unittest.IsolatedAsyncioTestCase):
             date(2026, 2, 1),
             date(2026, 2, 15),
             date(2026, 1, 1),
+        )
+        monthly_mock.assert_awaited_once_with(
+            db,
+            farm_id,
+            date(2025, 10, 1),
+            date(2026, 3, 15),
         )
         self.assertEqual(result.gross_income, Decimal("1000.00"))
         self.assertEqual(result.total_expenses, Decimal("600.00"))
@@ -271,6 +300,20 @@ class FinanceDashboardServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             result.projected_annual_income, Decimal("36500.00")
         )
+        self.assertEqual(
+            [point.month for point in result.cash_flow],
+            [
+                date(2025, 10, 1),
+                date(2025, 11, 1),
+                date(2025, 12, 1),
+                date(2026, 1, 1),
+                date(2026, 2, 1),
+                date(2026, 3, 1),
+            ],
+        )
+        self.assertEqual(result.cash_flow[0].income, Decimal("0.00"))
+        self.assertEqual(result.cash_flow[2].income, Decimal("1200.00"))
+        self.assertEqual(result.cash_flow[5].expenses, Decimal("600.00"))
 
     async def test_undefined_percentages_are_null(self):
         totals = FinanceDashboardTotals(
@@ -281,10 +324,17 @@ class FinanceDashboardServiceTests(unittest.IsolatedAsyncioTestCase):
             year_to_date_income=Decimal("0.00"),
         )
 
-        with patch.object(
-            finance_service.finance_repo,
-            "get_dashboard_totals",
-            AsyncMock(return_value=totals),
+        with (
+            patch.object(
+                finance_service.finance_repo,
+                "get_dashboard_totals",
+                AsyncMock(return_value=totals),
+            ),
+            patch.object(
+                finance_service.finance_repo,
+                "get_monthly_totals",
+                AsyncMock(return_value=[]),
+            ),
         ):
             result = await finance_service.get_dashboard(
                 AsyncMock(), uuid.uuid4(), date(2026, 1, 31)
@@ -294,6 +344,13 @@ class FinanceDashboardServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(result.balance_change_percentage)
         self.assertIsNone(result.net_margin_change_percentage_points)
         self.assertEqual(result.projected_annual_income, Decimal("0.00"))
+        self.assertEqual(len(result.cash_flow), 6)
+        self.assertTrue(
+            all(
+                point.income == 0 and point.expenses == 0
+                for point in result.cash_flow
+            )
+        )
 
 
 if __name__ == "__main__":

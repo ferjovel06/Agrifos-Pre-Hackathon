@@ -101,6 +101,12 @@ class ExpenseRead(ExpenseValues):
     farm_id: uuid.UUID
 
 
+class CashFlowPoint(BaseModel):
+    month: date
+    income: Amount
+    expenses: Amount
+
+
 class FinanceDashboardRead(BaseModel):
     farm_id: uuid.UUID
     period_start: date
@@ -112,6 +118,7 @@ class FinanceDashboardRead(BaseModel):
     balance_change_percentage: Amount | None
     net_margin_change_percentage_points: Amount | None
     projected_annual_income: Amount
+    cash_flow: list[CashFlowPoint]
 
 
 def _validate_update(value):

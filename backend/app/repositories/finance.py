@@ -4,7 +4,7 @@ from datetime import date
 from decimal import Decimal
 from typing import TypeVar
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import Numeric, Select, func, literal, select, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
@@ -21,6 +21,14 @@ class FinanceDashboardTotals:
     previous_income: Decimal
     previous_expenses: Decimal
     year_to_date_income: Decimal
+
+
+@dataclass(frozen=True)
+class MonthlyFinanceTotals:
+    year: int
+    month: int
+    income: Decimal
+    expenses: Decimal
 
 
 async def _create(
@@ -143,6 +151,56 @@ async def get_dashboard_totals(
     )
     row = (await db.execute(statement)).one()
     return FinanceDashboardTotals(**row._mapping)
+
+
+async def get_monthly_totals(
+    db: AsyncSession,
+    farm_id: uuid.UUID,
+    start: date,
+    end: date,
+) -> list[MonthlyFinanceTotals]:
+    zero = literal(Decimal("0.00")).cast(Numeric(12, 2))
+    income_totals = select(
+        func.extract("year", Income.income_date).label("year"),
+        func.extract("month", Income.income_date).label("month"),
+        func.sum(Income.amount).label("income"),
+        zero.label("expenses"),
+    ).where(
+        Income.farm_id == farm_id,
+        Income.income_date >= start,
+        Income.income_date <= end,
+    ).group_by("year", "month")
+    expense_totals = select(
+        func.extract("year", Expense.expense_date).label("year"),
+        func.extract("month", Expense.expense_date).label("month"),
+        zero.label("income"),
+        func.sum(Expense.amount).label("expenses"),
+    ).where(
+        Expense.farm_id == farm_id,
+        Expense.expense_date >= start,
+        Expense.expense_date <= end,
+    ).group_by("year", "month")
+    combined = union_all(income_totals, expense_totals).subquery()
+    statement = (
+        select(
+            combined.c.year,
+            combined.c.month,
+            func.sum(combined.c.income).label("income"),
+            func.sum(combined.c.expenses).label("expenses"),
+        )
+        .group_by(combined.c.year, combined.c.month)
+        .order_by(combined.c.year, combined.c.month)
+    )
+    rows = (await db.execute(statement)).all()
+    return [
+        MonthlyFinanceTotals(
+            year=int(row.year),
+            month=int(row.month),
+            income=row.income,
+            expenses=row.expenses,
+        )
+        for row in rows
+    ]
 
 
 async def update_record(

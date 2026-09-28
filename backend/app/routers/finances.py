@@ -84,11 +84,17 @@ async def get_dashboard(
         default_factory=date.today,
         description="Last date included in the current-month metrics",
     ),
+    months: int = Query(
+        default=6,
+        ge=2,
+        le=12,
+        description="Number of calendar months included in cash flow",
+    ),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_authorized_farm(db, farm_id, current_user)
-    return await finance_service.get_dashboard(db, farm_id, as_of)
+    return await finance_service.get_dashboard(db, farm_id, as_of, months)
 
 
 @router.post(

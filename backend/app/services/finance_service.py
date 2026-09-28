@@ -6,7 +6,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.repositories import finance as finance_repo
-from app.schemas.finance import FinanceDashboardRead
+from app.schemas.finance import CashFlowPoint, FinanceDashboardRead
 
 
 MONEY_PRECISION = Decimal("0.01")
@@ -40,10 +40,17 @@ def _comparison_period(as_of: date) -> tuple[date, date]:
     return previous_month_start, previous_month_end.replace(day=comparable_day)
 
 
+def _shift_month(value: date, offset: int) -> date:
+    month_index = value.year * 12 + value.month - 1 + offset
+    year, zero_based_month = divmod(month_index, 12)
+    return date(year, zero_based_month + 1, 1)
+
+
 async def get_dashboard(
     db: AsyncSession,
     farm_id: uuid.UUID,
     as_of: date,
+    months: int = 6,
 ) -> FinanceDashboardRead:
     period_start = as_of.replace(day=1)
     previous_start, previous_end = _comparison_period(as_of)
@@ -58,6 +65,31 @@ async def get_dashboard(
         previous_end,
         year_start,
     )
+    cash_flow_start = _shift_month(period_start, -(months - 1))
+    monthly_totals = await finance_repo.get_monthly_totals(
+        db,
+        farm_id,
+        cash_flow_start,
+        as_of,
+    )
+    totals_by_month = {
+        (total.year, total.month): total for total in monthly_totals
+    }
+    cash_flow = []
+    for offset in range(months):
+        month = _shift_month(cash_flow_start, offset)
+        monthly = totals_by_month.get((month.year, month.month))
+        cash_flow.append(
+            CashFlowPoint(
+                month=month,
+                income=_round_money(
+                    Decimal("0.00") if monthly is None else monthly.income
+                ),
+                expenses=_round_money(
+                    Decimal("0.00") if monthly is None else monthly.expenses
+                ),
+            )
+        )
 
     operating_balance = totals.current_income - totals.current_expenses
     previous_balance = totals.previous_income - totals.previous_expenses
@@ -86,4 +118,5 @@ async def get_dashboard(
             else _round_percentage(current_margin - previous_margin)
         ),
         projected_annual_income=_round_money(projected_annual_income),
+        cash_flow=cash_flow,
     )
