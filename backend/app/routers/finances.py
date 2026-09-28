@@ -1,4 +1,5 @@
 import uuid
+from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,10 +17,12 @@ from app.schemas.finance import (
     ExpenseCreate,
     ExpenseRead,
     ExpenseUpdate,
+    FinanceDashboardRead,
     IncomeCreate,
     IncomeRead,
     IncomeUpdate,
 )
+from app.services import finance_service
 
 
 router = APIRouter(prefix="/finances", tags=["finances"])
@@ -72,6 +75,20 @@ async def _get_authorized_expense(
         )
     await _get_authorized_farm(db, expense.farm_id, user)
     return expense
+
+
+@router.get("/dashboard", response_model=FinanceDashboardRead)
+async def get_dashboard(
+    farm_id: uuid.UUID = Query(..., description="Farm to query"),
+    as_of: date = Query(
+        default_factory=date.today,
+        description="Last date included in the current-month metrics",
+    ),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_authorized_farm(db, farm_id, current_user)
+    return await finance_service.get_dashboard(db, farm_id, as_of)
 
 
 @router.post(

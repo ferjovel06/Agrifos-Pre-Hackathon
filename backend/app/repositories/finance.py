@@ -1,13 +1,26 @@
 import uuid
+from dataclasses import dataclass
+from datetime import date
+from decimal import Decimal
 from typing import TypeVar
 
-from sqlalchemy import Select, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import InstrumentedAttribute
 
 from app.models import Expense, Income
 
 
 FinanceRecord = TypeVar("FinanceRecord", Income, Expense)
+
+
+@dataclass(frozen=True)
+class FinanceDashboardTotals:
+    current_income: Decimal
+    current_expenses: Decimal
+    previous_income: Decimal
+    previous_expenses: Decimal
+    year_to_date_income: Decimal
 
 
 async def _create(
@@ -82,6 +95,54 @@ async def list_expenses_by_farm(
         .offset(skip)
         .limit(limit),
     )
+
+
+def _total_for_period(
+    model: type[Income] | type[Expense],
+    date_column: InstrumentedAttribute,
+    farm_id: uuid.UUID,
+    start: date,
+    end: date,
+):
+    return (
+        select(func.coalesce(func.sum(model.amount), Decimal("0.00")))
+        .where(
+            model.farm_id == farm_id,
+            date_column >= start,
+            date_column <= end,
+        )
+        .scalar_subquery()
+    )
+
+
+async def get_dashboard_totals(
+    db: AsyncSession,
+    farm_id: uuid.UUID,
+    current_start: date,
+    current_end: date,
+    previous_start: date,
+    previous_end: date,
+    year_start: date,
+) -> FinanceDashboardTotals:
+    statement = select(
+        _total_for_period(
+            Income, Income.income_date, farm_id, current_start, current_end
+        ).label("current_income"),
+        _total_for_period(
+            Expense, Expense.expense_date, farm_id, current_start, current_end
+        ).label("current_expenses"),
+        _total_for_period(
+            Income, Income.income_date, farm_id, previous_start, previous_end
+        ).label("previous_income"),
+        _total_for_period(
+            Expense, Expense.expense_date, farm_id, previous_start, previous_end
+        ).label("previous_expenses"),
+        _total_for_period(
+            Income, Income.income_date, farm_id, year_start, current_end
+        ).label("year_to_date_income"),
+    )
+    row = (await db.execute(statement)).one()
+    return FinanceDashboardTotals(**row._mapping)
 
 
 async def update_record(

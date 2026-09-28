@@ -9,6 +9,7 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 
 from app.models import Expense, Income
+from app.repositories.finance import FinanceDashboardTotals
 from app.routers import finances as router
 from app.schemas.finance import (
     ExpenseCreate,
@@ -16,6 +17,7 @@ from app.schemas.finance import (
     IncomeCreate,
     IncomeUpdate,
 )
+from app.services import finance_service
 
 
 class FinanceSchemaTests(unittest.TestCase):
@@ -95,6 +97,33 @@ class FinanceRouterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.farm_id, self.farm.id)
         self.assertEqual(result.amount, Decimal("850.25"))
         self.assertEqual(result.category, "Venta de café")
+
+    async def test_dashboard_is_scoped_to_owned_farm(self):
+        expected = object()
+
+        with (
+            patch.object(
+                router.farm_repo,
+                "get_farm",
+                AsyncMock(return_value=self.farm),
+            ),
+            patch.object(
+                router.finance_service,
+                "get_dashboard",
+                AsyncMock(return_value=expected),
+            ) as dashboard_mock,
+        ):
+            result = await router.get_dashboard(
+                farm_id=self.farm.id,
+                as_of=date(2026, 9, 28),
+                current_user=self.user,
+                db=self.db,
+            )
+
+        self.assertIs(result, expected)
+        dashboard_mock.assert_awaited_once_with(
+            self.db, self.farm.id, date(2026, 9, 28)
+        )
 
     async def test_foreign_farm_is_rejected(self):
         foreign_farm = SimpleNamespace(id=uuid.uuid4(), user_id=uuid.uuid4())
@@ -197,6 +226,74 @@ class FinanceRouterTests(unittest.IsolatedAsyncioTestCase):
                 )
 
         self.assertEqual(raised.exception.status_code, 404)
+
+
+class FinanceDashboardServiceTests(unittest.IsolatedAsyncioTestCase):
+    async def test_calculates_dashboard_metrics_and_comparable_period(self):
+        farm_id = uuid.uuid4()
+        db = AsyncMock()
+        totals = FinanceDashboardTotals(
+            current_income=Decimal("1000.00"),
+            current_expenses=Decimal("600.00"),
+            previous_income=Decimal("800.00"),
+            previous_expenses=Decimal("500.00"),
+            year_to_date_income=Decimal("7400.00"),
+        )
+
+        with patch.object(
+            finance_service.finance_repo,
+            "get_dashboard_totals",
+            AsyncMock(return_value=totals),
+        ) as totals_mock:
+            result = await finance_service.get_dashboard(
+                db, farm_id, date(2026, 3, 15)
+            )
+
+        totals_mock.assert_awaited_once_with(
+            db,
+            farm_id,
+            date(2026, 3, 1),
+            date(2026, 3, 15),
+            date(2026, 2, 1),
+            date(2026, 2, 15),
+            date(2026, 1, 1),
+        )
+        self.assertEqual(result.gross_income, Decimal("1000.00"))
+        self.assertEqual(result.total_expenses, Decimal("600.00"))
+        self.assertEqual(result.operating_balance, Decimal("400.00"))
+        self.assertEqual(result.net_margin_percentage, Decimal("40.00"))
+        self.assertEqual(
+            result.balance_change_percentage, Decimal("33.33")
+        )
+        self.assertEqual(
+            result.net_margin_change_percentage_points, Decimal("2.50")
+        )
+        self.assertEqual(
+            result.projected_annual_income, Decimal("36500.00")
+        )
+
+    async def test_undefined_percentages_are_null(self):
+        totals = FinanceDashboardTotals(
+            current_income=Decimal("0.00"),
+            current_expenses=Decimal("100.00"),
+            previous_income=Decimal("0.00"),
+            previous_expenses=Decimal("0.00"),
+            year_to_date_income=Decimal("0.00"),
+        )
+
+        with patch.object(
+            finance_service.finance_repo,
+            "get_dashboard_totals",
+            AsyncMock(return_value=totals),
+        ):
+            result = await finance_service.get_dashboard(
+                AsyncMock(), uuid.uuid4(), date(2026, 1, 31)
+            )
+
+        self.assertIsNone(result.net_margin_percentage)
+        self.assertIsNone(result.balance_change_percentage)
+        self.assertIsNone(result.net_margin_change_percentage_points)
+        self.assertEqual(result.projected_annual_income, Decimal("0.00"))
 
 
 if __name__ == "__main__":

@@ -110,6 +110,7 @@ class AuditorPolicyTests(unittest.IsolatedAsyncioTestCase):
         endpoints = (
             farms.list_farms,
             farms.get_farm,
+            finances.get_dashboard,
             finances.list_incomes,
             finances.get_income,
             finances.list_expenses,

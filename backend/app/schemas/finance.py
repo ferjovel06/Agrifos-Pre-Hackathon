@@ -101,6 +101,19 @@ class ExpenseRead(ExpenseValues):
     farm_id: uuid.UUID
 
 
+class FinanceDashboardRead(BaseModel):
+    farm_id: uuid.UUID
+    period_start: date
+    period_end: date
+    gross_income: Amount
+    total_expenses: Amount
+    operating_balance: Amount
+    net_margin_percentage: Amount | None
+    balance_change_percentage: Amount | None
+    net_margin_change_percentage_points: Amount | None
+    projected_annual_income: Amount
+
+
 def _validate_update(value):
     if not isinstance(value, dict) or not value:
         raise ValueError("At least one field must be provided.")
