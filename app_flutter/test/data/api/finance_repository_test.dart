@@ -53,6 +53,20 @@ void main() {
     expect(client.lastMutationPath, '/finances/expenses');
     expect(client.lastBody?['farm_id'], 'farm-1');
   });
+
+  test('loads and parses dashboard metrics', () async {
+    final client = _ApiClientStub();
+
+    final metrics = await FinanceRepository(
+      client: client,
+    ).getDashboard('farm-1');
+
+    expect(metrics.farmId, 'farm-1');
+    expect(metrics.operatingBalance, 12450);
+    expect(metrics.netMarginPercentage, 41.4);
+    expect(metrics.balanceChangePercentage, 18.5);
+    expect(client.queries.last, ('/finances/dashboard', 'farm-1'));
+  });
 }
 
 class _ApiClientStub extends ApiClient {
@@ -65,6 +79,23 @@ class _ApiClientStub extends ApiClient {
   @override
   Future<dynamic> get(String path, {Map<String, String>? query}) async {
     queries.add((path, query?['farm_id']));
+    if (path.endsWith('dashboard')) {
+      return {
+        'farm_id': 'farm-1',
+        'period_start': '2026-09-01',
+        'period_end': '2026-09-28',
+        'gross_income': '30060.00',
+        'total_expenses': '17610.00',
+        'operating_balance': '12450.00',
+        'net_margin_percentage': '41.40',
+        'balance_change_percentage': '18.50',
+        'net_margin_change_percentage_points': '3.20',
+        'projected_annual_income': '120000.00',
+        'cash_flow': [
+          {'month': '2026-09-01', 'income': '30060.00', 'expenses': '17610.00'},
+        ],
+      };
+    }
     return path.endsWith('incomes') ? incomes : expenses;
   }
 

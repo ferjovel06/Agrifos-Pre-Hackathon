@@ -1,3 +1,4 @@
+import '../../domain/entities/finance_dashboard.dart';
 import '../../domain/entities/finance_entry.dart';
 import 'api_client.dart';
 
@@ -5,6 +6,14 @@ class FinanceRepository {
   FinanceRepository({ApiClient? client}) : _client = client ?? ApiClient();
 
   final ApiClient _client;
+
+  Future<FinanceDashboardMetrics> getDashboard(String farmId) async {
+    final response = await _client.get(
+      '/finances/dashboard',
+      query: {'farm_id': farmId},
+    );
+    return FinanceDashboardMetrics.fromJson(response as Map<String, dynamic>);
+  }
 
   Future<List<FinanceEntry>> listForFarm(String farmId) async {
     final responses = await Future.wait([

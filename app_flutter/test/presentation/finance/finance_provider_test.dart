@@ -1,4 +1,5 @@
 import 'package:app_flutter/data/api/finance_repository.dart';
+import 'package:app_flutter/domain/entities/finance_dashboard.dart';
 import 'package:app_flutter/domain/entities/finance_entry.dart';
 import 'package:app_flutter/presentation/finance/finance_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -28,6 +29,7 @@ void main() {
     await provider.loadForFarm('farm-1');
 
     expect(provider.status, FinanceStatus.ready);
+    expect(provider.dashboard?.operatingBalance, 375);
     expect(provider.totalIncome, 500);
     expect(provider.totalExpenses, 125);
     expect(provider.balance, 375);
@@ -66,11 +68,16 @@ final _date = DateTime(2026, 9, 27);
 
 class _FinanceRepositoryStub extends FinanceRepository {
   List<FinanceEntry> loaded = [];
+  FinanceDashboardMetrics dashboard = _dashboard;
   FinanceEntry? created;
   FinanceEntry? deleted;
 
   @override
   Future<List<FinanceEntry>> listForFarm(String farmId) async => loaded;
+
+  @override
+  Future<FinanceDashboardMetrics> getDashboard(String farmId) async =>
+      dashboard;
 
   @override
   Future<FinanceEntry> create(String farmId, FinanceEntryInput input) async =>
@@ -81,3 +88,21 @@ class _FinanceRepositoryStub extends FinanceRepository {
     deleted = entry;
   }
 }
+
+final _dashboard = FinanceDashboardMetrics(
+  farmId: 'farm-1',
+  periodStart: DateTime(2026, 9),
+  periodEnd: DateTime(2026, 9, 28),
+  grossIncome: 500,
+  totalExpenses: 125,
+  operatingBalance: 375,
+  netMarginPercentage: 75,
+  balanceChangePercentage: 18.5,
+  netMarginChangePercentagePoints: 3.2,
+  projectedAnnualIncome: 120000,
+  cashFlow: _cashFlow,
+);
+
+final _cashFlow = [
+  FinanceCashFlowPoint(month: DateTime(2026, 9), income: 500, expenses: 125),
+];

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../data/api/api_client.dart';
 import '../../data/api/finance_repository.dart';
+import '../../domain/entities/finance_dashboard.dart';
 import '../../domain/entities/finance_entry.dart';
 
 enum FinanceStatus { idle, loading, ready, error }
@@ -13,6 +14,7 @@ class FinanceProvider extends ChangeNotifier {
   final FinanceRepository _repository;
 
   FinanceStatus status = FinanceStatus.idle;
+  FinanceDashboardMetrics? dashboard;
   List<FinanceEntry> entries = const [];
   String? farmId;
   String? errorMessage;
@@ -31,6 +33,7 @@ class FinanceProvider extends ChangeNotifier {
   Future<void> loadForFarm(String? selectedFarmId, {bool force = false}) async {
     if (selectedFarmId == null) {
       farmId = null;
+      dashboard = null;
       entries = const [];
       status = FinanceStatus.idle;
       errorMessage = null;
@@ -43,15 +46,22 @@ class FinanceProvider extends ChangeNotifier {
 
     final farmChanged = farmId != selectedFarmId;
     farmId = selectedFarmId;
-    if (farmChanged) entries = const [];
+    if (farmChanged) {
+      dashboard = null;
+      entries = const [];
+    }
     status = FinanceStatus.loading;
     errorMessage = null;
     notifyListeners();
 
     try {
-      final loaded = await _repository.listForFarm(selectedFarmId);
+      final results = await Future.wait<Object>([
+        _repository.listForFarm(selectedFarmId),
+        _repository.getDashboard(selectedFarmId),
+      ]);
       if (farmId != selectedFarmId) return;
-      entries = loaded;
+      entries = results[0] as List<FinanceEntry>;
+      dashboard = results[1] as FinanceDashboardMetrics;
       status = FinanceStatus.ready;
     } catch (error) {
       if (farmId != selectedFarmId) return;
@@ -82,6 +92,7 @@ class FinanceProvider extends ChangeNotifier {
                 .map((entry) => entry.id == saved.id ? saved : entry)
                 .toList();
       _sortEntries();
+      await _refreshDashboard(selectedFarmId);
       status = FinanceStatus.ready;
       return true;
     } catch (error) {
@@ -101,6 +112,8 @@ class FinanceProvider extends ChangeNotifier {
     try {
       await _repository.delete(entry);
       entries = entries.where((item) => item.id != entry.id).toList();
+      final selectedFarmId = farmId;
+      if (selectedFarmId != null) await _refreshDashboard(selectedFarmId);
       return true;
     } catch (error) {
       errorMessage = _messageFor(error, 'No se pudo eliminar el movimiento.');
@@ -116,6 +129,20 @@ class FinanceProvider extends ChangeNotifier {
       final dateOrder = right.date.compareTo(left.date);
       return dateOrder != 0 ? dateOrder : right.id.compareTo(left.id);
     });
+  }
+
+  Future<void> _refreshDashboard(String selectedFarmId) async {
+    try {
+      final refreshed = await _repository.getDashboard(selectedFarmId);
+      if (farmId == selectedFarmId) dashboard = refreshed;
+    } catch (error) {
+      if (farmId == selectedFarmId) {
+        errorMessage = _messageFor(
+          error,
+          'El movimiento se actualizó, pero no se pudo refrescar el resumen.',
+        );
+      }
+    }
   }
 
   String _messageFor(Object error, String fallback) {

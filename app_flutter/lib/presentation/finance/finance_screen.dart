@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:math' as math;
 
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/api/finance_repository.dart';
+import '../../domain/entities/finance_dashboard.dart';
 import '../../domain/entities/finance_entry.dart';
 import '../farm/farm_provider.dart';
 import 'finance_provider.dart';
@@ -87,6 +90,16 @@ class _FinanceScreenState extends State<FinanceScreen> {
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(0, 6, 0, 28),
               children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: _MetricsGrid(metrics: _provider.dashboard!),
+                ),
+                const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: _CashFlowCard(points: _provider.dashboard!.cashFlow),
+                ),
+                const SizedBox(height: 16),
                 Container(
                   margin: const EdgeInsets.symmetric(horizontal: 2),
                   padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
@@ -286,6 +299,485 @@ class _FinanceScreenState extends State<FinanceScreen> {
       ),
     );
   }
+}
+
+class _MetricsGrid extends StatelessWidget {
+  const _MetricsGrid({required this.metrics});
+
+  final FinanceDashboardMetrics metrics;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      const spacing = 12.0;
+      final columns = constraints.maxWidth >= 280 ? 2 : 1;
+      final cardWidth =
+          (constraints.maxWidth - spacing * (columns - 1)) / columns;
+      final previousMonth = _monthName(
+        metrics.periodStart.subtract(const Duration(days: 1)).month,
+      );
+      final balanceColor = metrics.operatingBalance < 0
+          ? _FinanceScreenState.red
+          : _FinanceScreenState.green;
+
+      return Wrap(
+        spacing: spacing,
+        runSpacing: spacing,
+        children: [
+          _MetricCard(
+            width: cardWidth,
+            title: 'BALANCE NETO\nOPERATIVO',
+            value: _signedMoney(metrics.operatingBalance),
+            valueColor: balanceColor,
+            icon: Icons.trending_up_rounded,
+            detail: metrics.balanceChangePercentage == null
+                ? 'Sin comparación mensual'
+                : '${_signedPercentage(metrics.balanceChangePercentage!)} mensual',
+            detailAsBadge: metrics.balanceChangePercentage != null,
+          ),
+          _MetricCard(
+            width: cardWidth,
+            title: 'TOTAL INGRESOS\nBRUTOS',
+            value: _money(metrics.grossIncome),
+            valueColor: const Color(0xFF4386F4),
+            icon: Icons.attach_money_rounded,
+            detail:
+                'Proyección anual: ${_compactMoney(metrics.projectedAnnualIncome)}',
+          ),
+          _MetricCard(
+            width: cardWidth,
+            title: 'TOTAL EGRESOS',
+            value: _money(metrics.totalExpenses),
+            valueColor: const Color(0xFFE52D2D),
+            icon: Icons.bar_chart_rounded,
+            detail: 'Egresos del mes actual',
+          ),
+          _MetricCard(
+            width: cardWidth,
+            title: 'MARGEN NETO',
+            value: metrics.netMarginPercentage == null
+                ? '—'
+                : '${_decimal(metrics.netMarginPercentage!)}%',
+            valueColor: const Color(0xFF8B5CF6),
+            icon: Icons.percent_rounded,
+            detail: metrics.netMarginChangePercentagePoints == null
+                ? 'Sin comparación disponible'
+                : '${_signedDecimal(metrics.netMarginChangePercentagePoints!)} pp vs $previousMonth',
+            detailAsBadge: metrics.netMarginChangePercentagePoints != null,
+          ),
+        ],
+      );
+    },
+  );
+}
+
+class _MetricCard extends StatelessWidget {
+  const _MetricCard({
+    required this.width,
+    required this.title,
+    required this.value,
+    required this.valueColor,
+    required this.icon,
+    required this.detail,
+    this.detailAsBadge = false,
+  });
+
+  final double width;
+  final String title;
+  final String value;
+  final Color valueColor;
+  final IconData icon;
+  final String detail;
+  final bool detailAsBadge;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: width,
+    height: 136,
+    clipBehavior: Clip.antiAlias,
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(25),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x0D000000),
+          blurRadius: 18,
+          offset: Offset(0, 7),
+        ),
+      ],
+    ),
+    child: Stack(
+      children: [
+        Positioned(
+          right: -5,
+          bottom: -10,
+          child: IgnorePointer(
+            child: Icon(
+              icon,
+              size: 66,
+              color: valueColor.withValues(alpha: 0.055),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 14, 12, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Color(0xFFB3A5A0),
+                  fontSize: 11,
+                  height: 1.45,
+                  letterSpacing: 1.8,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  value,
+                  maxLines: 1,
+                  style: TextStyle(
+                    color: valueColor,
+                    fontSize: 24,
+                    height: 1,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.7,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              if (detailAsBadge)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0F3F0),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    detail,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: _FinanceScreenState.green,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                )
+              else
+                Text(
+                  detail,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFFB4A7A2),
+                    fontSize: 10,
+                    height: 1.25,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _CashFlowCard extends StatelessWidget {
+  const _CashFlowCard({required this.points});
+
+  final List<FinanceCashFlowPoint> points;
+
+  static const incomeColor = Color(0xFF4386F4);
+  static const expenseColor = Color(0xFFE52D2D);
+
+  @override
+  Widget build(BuildContext context) {
+    final highestValue = points.fold<double>(
+      0,
+      (highest, point) =>
+          math.max(highest, math.max(point.income, point.expenses)),
+    );
+    final hasData = highestValue > 0;
+    final maxY = _niceAxisMaximum(highestValue);
+    final interval = maxY / 4;
+
+    return Semantics(
+      container: true,
+      label: 'Flujo de caja de los últimos ${points.length} meses',
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 17, 14, 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(25),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0D000000),
+              blurRadius: 18,
+              offset: Offset(0, 7),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(
+                  Icons.trending_up_rounded,
+                  color: _FinanceScreenState.brown,
+                  size: 19,
+                ),
+                SizedBox(width: 7),
+                Text(
+                  'Flujo de Caja',
+                  style: TextStyle(
+                    color: _FinanceScreenState.brown,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Últimos ${points.length} meses · Ingresos vs Gastos',
+              style: const TextStyle(
+                color: Color(0xFFB4A7A2),
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 13),
+            const Row(
+              children: [
+                _ChartLegend(color: incomeColor, label: 'Ingresos'),
+                SizedBox(width: 20),
+                _ChartLegend(color: expenseColor, label: 'Gastos'),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 190,
+              child: hasData
+                  ? LineChart(
+                      _chartData(maxY: maxY, interval: interval),
+                      duration: const Duration(milliseconds: 350),
+                    )
+                  : const _EmptyCashFlow(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  LineChartData _chartData({required double maxY, required double interval}) {
+    final lastIndex = math.max(0, points.length - 1).toDouble();
+    return LineChartData(
+      minX: 0,
+      maxX: lastIndex,
+      minY: 0,
+      maxY: maxY,
+      clipData: const FlClipData(
+        top: true,
+        bottom: true,
+        left: false,
+        right: false,
+      ),
+      gridData: FlGridData(
+        drawVerticalLine: false,
+        horizontalInterval: interval,
+        getDrawingHorizontalLine: (_) => const FlLine(
+          color: Color(0xFFEDE7E3),
+          strokeWidth: 1,
+          dashArray: [4, 4],
+        ),
+      ),
+      borderData: FlBorderData(show: false),
+      titlesData: FlTitlesData(
+        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        rightTitles: const AxisTitles(
+          sideTitles: SideTitles(showTitles: false),
+        ),
+        leftTitles: AxisTitles(
+          sideTitles: SideTitles(
+            showTitles: true,
+            reservedSize: 42,
+            interval: interval,
+            getTitlesWidget: (value, meta) => SideTitleWidget(
+              meta: meta,
+              child: Text(
+                _compactAxisMoney(value),
+                style: const TextStyle(
+                  color: Color(0xFFB6AAA5),
+                  fontSize: 8,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        ),
+        bottomTitles: AxisTitles(
+          sideTitles: SideTitles(
+            showTitles: true,
+            reservedSize: 27,
+            interval: 1,
+            getTitlesWidget: (value, meta) {
+              final index = value.round();
+              if (index < 0 || index >= points.length || value != index) {
+                return const SizedBox.shrink();
+              }
+              return SideTitleWidget(
+                meta: meta,
+                space: 8,
+                child: Text(
+                  _shortMonth(points[index].month.month),
+                  style: const TextStyle(
+                    color: Color(0xFF9E918C),
+                    fontSize: 9,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+      extraLinesData: ExtraLinesData(
+        verticalLines: [
+          VerticalLine(
+            x: lastIndex,
+            color: const Color(0xFF9FA9A2),
+            strokeWidth: 1,
+            dashArray: [4, 3],
+            label: VerticalLineLabel(
+              show: true,
+              alignment: Alignment.topRight,
+              padding: const EdgeInsets.only(bottom: 3),
+              style: const TextStyle(
+                color: _FinanceScreenState.green,
+                fontSize: 8,
+                fontWeight: FontWeight.w900,
+              ),
+              labelResolver: (_) => 'HOY',
+            ),
+          ),
+        ],
+      ),
+      lineTouchData: LineTouchData(
+        touchTooltipData: LineTouchTooltipData(
+          getTooltipColor: (_) => _FinanceScreenState.brown,
+          getTooltipItems: (spots) => spots.map((spot) {
+            final income = spot.barIndex == 0;
+            return LineTooltipItem(
+              '${income ? 'Ingresos' : 'Gastos'}\n${_money(spot.y)}',
+              const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+      lineBarsData: [
+        _lineData(
+          points.map((point) => point.income).toList(growable: false),
+          incomeColor,
+        ),
+        _lineData(
+          points.map((point) => point.expenses).toList(growable: false),
+          expenseColor,
+        ),
+      ],
+    );
+  }
+
+  LineChartBarData _lineData(List<double> values, Color color) {
+    return LineChartBarData(
+      spots: [
+        for (var index = 0; index < values.length; index++)
+          FlSpot(index.toDouble(), values[index]),
+      ],
+      isCurved: false,
+      color: color,
+      barWidth: 2.5,
+      dotData: FlDotData(
+        show: true,
+        getDotPainter: (_, _, _, _) => FlDotCirclePainter(
+          radius: 3,
+          color: color,
+          strokeWidth: 1.5,
+          strokeColor: Colors.white,
+        ),
+      ),
+      belowBarData: BarAreaData(
+        show: true,
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            color.withValues(alpha: 0.11),
+            color.withValues(alpha: 0.015),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ChartLegend extends StatelessWidget {
+  const _ChartLegend({required this.color, required this.label});
+
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Container(width: 25, height: 2.5, color: color),
+      const SizedBox(width: 7),
+      Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    ],
+  );
+}
+
+class _EmptyCashFlow extends StatelessWidget {
+  const _EmptyCashFlow();
+
+  @override
+  Widget build(BuildContext context) => const Center(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.show_chart_rounded, color: Color(0xFFC9BFBB), size: 34),
+        SizedBox(height: 8),
+        Text(
+          'Registra movimientos para ver el flujo de caja.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Color(0xFF9E918C), fontSize: 11),
+        ),
+      ],
+    ),
+  );
 }
 
 class _FilterControl extends StatelessWidget {
@@ -813,6 +1305,87 @@ String _money(double value) {
   );
   final decimals = parts.length == 2 ? '.${parts.last}' : '';
   return '$_currencySymbol $grouped$decimals';
+}
+
+String _signedMoney(double value) {
+  final sign = value < 0 ? '-' : '';
+  return '$sign${_money(value)}';
+}
+
+String _compactMoney(double value) {
+  final absolute = value.abs();
+  if (absolute < 1000) return _signedMoney(value);
+  final divisor = absolute >= 1000000 ? 1000000 : 1000;
+  final suffix = absolute >= 1000000 ? 'M' : ' mil';
+  final compact = _decimal(absolute / divisor);
+  return '${value < 0 ? '-' : ''}$_currencySymbol $compact$suffix';
+}
+
+String _signedPercentage(double value) => '${_signedDecimal(value)}%';
+
+String _signedDecimal(double value) {
+  if (value == 0) return '0';
+  return '${value > 0 ? '+' : '-'}${_decimal(value.abs())}';
+}
+
+String _decimal(double value) {
+  final fixed = value.toStringAsFixed(1);
+  return fixed.endsWith('.0') ? fixed.substring(0, fixed.length - 2) : fixed;
+}
+
+String _monthName(int month) {
+  const months = [
+    'enero',
+    'febrero',
+    'marzo',
+    'abril',
+    'mayo',
+    'junio',
+    'julio',
+    'agosto',
+    'septiembre',
+    'octubre',
+    'noviembre',
+    'diciembre',
+  ];
+  return months[month - 1];
+}
+
+String _shortMonth(int month) {
+  const months = [
+    'Ene',
+    'Feb',
+    'Mar',
+    'Abr',
+    'May',
+    'Jun',
+    'Jul',
+    'Ago',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dic',
+  ];
+  return months[month - 1];
+}
+
+double _niceAxisMaximum(double value) {
+  if (value <= 0) return 1000;
+  const gridSections = 4;
+  final roughInterval = value * 1.1 / gridSections;
+  final magnitude = math.pow(
+    10,
+    (math.log(roughInterval) / math.ln10).floor(),
+  );
+  final interval = (roughInterval / magnitude).ceil() * magnitude;
+  return (interval * gridSections).toDouble();
+}
+
+String _compactAxisMoney(double value) {
+  if (value == 0) return r'C$0';
+  if (value >= 1000000) return 'C\$${_decimal(value / 1000000)}M';
+  if (value >= 1000) return 'C\$${_decimal(value / 1000)}k';
+  return 'C\$${_decimal(value)}';
 }
 
 String _formatDate(DateTime value) {
