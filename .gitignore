@@ -21,4 +21,10 @@ app_flutter/.env
 # Environment variables
 .env
 
-tmp/**
+# Data analysis
+data_analysis/
+
+# Docs
+docs/rules/**
+
+tmp/
